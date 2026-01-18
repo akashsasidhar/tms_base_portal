@@ -19,6 +19,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  FolderKanban,
+  CheckSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -39,6 +41,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Home, permission: undefined },
+  { href: '/projects', label: 'Projects', icon: FolderKanban, permission: 'projects:read' },
+  { href: '/tasks', label: 'Tasks', icon: CheckSquare, permission: 'tasks:read' },
   { href: '/users', label: 'Users', icon: Users, permission: 'users:read' },
   { href: '/roles', label: 'Roles', icon: Shield, permission: 'roles:read' },
   { href: '/contact-types', label: 'Contact Types', icon: Mail, permission: 'contact-types:read' },

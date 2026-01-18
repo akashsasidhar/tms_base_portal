@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import UserNav from './UserNav';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
@@ -11,6 +12,8 @@ interface HeaderProps {
 
 const routeTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
+  '/projects': 'Projects',
+  '/tasks': 'Tasks',
   '/users': 'Users',
   '/roles': 'Roles',
   '/contact-types': 'Contact Types',
@@ -18,8 +21,28 @@ const routeTitles: Record<string, string> = {
 };
 
 export default function Header({ onMenuClick }: HeaderProps) {
+  const [title, setTitle] = useState('Dashboard');
+  const [mounted, setMounted] = useState(false);
+  
+  // Always call usePathname hook unconditionally (required by React rules)
   const pathname = usePathname();
-  const title = routeTitles[pathname] || 'Dashboard';
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    
+    // Use pathname from hook if available
+    if (pathname) {
+      setTitle(routeTitles[pathname] || 'Dashboard');
+    } else if (typeof window !== 'undefined') {
+      // Fallback to window.location if pathname is not available
+      const currentPath = window.location.pathname;
+      setTitle(routeTitles[currentPath] || 'Dashboard');
+    }
+  }, [pathname, mounted]);
 
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
