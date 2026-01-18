@@ -142,6 +142,29 @@ export const useRemoveContact = () => {
 };
 
 /**
+ * Update contact mutation
+ */
+export const useUpdateContact = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, contactId, contactData }: { userId: string; contactId: string; contactData: { contact: string } }) =>
+      userService.updateContact(userId, contactId, contactData),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user', variables.userId] });
+      toast.success('Contact updated successfully');
+    },
+    onError: (error: unknown) => {
+      const errorMessage =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to update contact';
+      toast.error(errorMessage);
+    },
+  });
+};
+
+/**
  * Assign role mutation
  */
 export const useAssignRole = () => {

@@ -45,14 +45,16 @@ const createUserSchema = z
     confirm_password: z.string().optional(),
     first_name: z.string().optional(),
     last_name: z.string().optional(),
-    contacts: z
+    primary_email: z.string().email("Invalid email address").min(1, "Email is required"),
+    primary_mobile: z.string().min(1, "Mobile number is required"),
+    additional_contacts: z
       .array(
         z.object({
-          contact_type_id: z.string().min(1, "Contact type is required"),
-          contact: z.string().min(1, "Contact is required"),
+          contact_type_id: z.string().optional(),
+          contact: z.string().optional(),
         }),
       )
-      .min(1, "At least one contact is required"),
+      .optional(),
     role_id: z.string().uuid("Invalid role ID").optional(),
   })
   .refine(
@@ -66,6 +68,30 @@ const createUserSchema = z
     {
       message: "Passwords don't match",
       path: ["confirm_password"],
+    },
+  )
+  .refine(
+    data => {
+      // Validate additional contacts: if either field is filled, both must be filled
+      if (data.additional_contacts && data.additional_contacts.length > 0) {
+        for (const contact of data.additional_contacts) {
+          const hasType = contact.contact_type_id && contact.contact_type_id.trim() !== '';
+          const hasContact = contact.contact && contact.contact.trim() !== '';
+          
+          // If one is filled, both must be filled
+          if (hasType && !hasContact) {
+            return false;
+          }
+          if (hasContact && !hasType) {
+            return false;
+          }
+        }
+      }
+      return true;
+    },
+    {
+      message: "Both contact type and contact value are required if adding an additional contact",
+      path: ["additional_contacts"],
     },
   );
 
@@ -108,7 +134,9 @@ export default function NewUserPage() {
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
-      contacts: [{ contact_type_id: "", contact: "" }],
+      primary_email: "",
+      primary_mobile: "",
+      additional_contacts: [],
       role_id: undefined,
       username: "",
     },
@@ -116,7 +144,7 @@ export default function NewUserPage() {
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: "contacts",
+    name: "additional_contacts",
   });
 
   const firstName = watch("first_name");
@@ -157,8 +185,14 @@ export default function NewUserPage() {
     const fetchRoles = async () => {
       try {
         const response = await roleService.getAll();
-        const rolesData = response.data?.data || response.data || [];
-        setRoles(Array.isArray(rolesData) ? rolesData.filter((r: Role) => r.is_active) : []);
+        // Handle different response structures
+        let rolesData: Role[] = [];
+        if (Array.isArray(response)) {
+          rolesData = response;
+        } else if (response && typeof response === 'object' && 'data' in response) {
+          rolesData = Array.isArray((response as any).data) ? (response as any).data : [];
+        }
+        setRoles(rolesData.filter((r: Role) => r.is_active));
       } catch (error) {
         toast.error("Failed to load roles");
         console.error("Error fetching roles:", error);
@@ -171,12 +205,42 @@ export default function NewUserPage() {
   }, []);
 
   const onSubmit = async (data: CreateUserFormData) => {
-    const { confirm_password, role_id, password, ...createData } = data;
-    const submitData = {
+    const { confirm_password, role_id, password, primary_email, primary_mobile, additional_contacts, ...createData } = data;
+    
+    // Find email and mobile contact type IDs
+    const emailType = contactTypes.find(t => t.contact_type.toLowerCase() === 'email');
+    const mobileType = contactTypes.find(t => t.contact_type.toLowerCase() === 'mobile');
+    
+    if (!emailType || !mobileType) {
+      toast.error("Email or mobile contact type not found. Please contact administrator.");
+      return;
+    }
+
+    // Build contacts array: primary email and mobile first, then additional contacts
+    // Filter out empty additional contacts (where both fields are empty)
+    const validAdditionalContacts = (additional_contacts || []).filter(
+      (contact) => contact.contact_type_id && contact.contact && contact.contact.trim() !== ''
+    );
+
+    const contacts = [
+      {
+        contact_type_id: emailType.id,
+        contact: primary_email,
+      },
+      {
+        contact_type_id: mobileType.id,
+        contact: primary_mobile,
+      },
+      ...validAdditionalContacts,
+    ];
+
+    const submitData: any = {
       ...createData,
+      contacts,
       ...(password ? { password } : {}), // Only include password if provided
       ...(role_id ? { role_ids: [role_id] } : {}), // Convert single role_id to array for backend
     };
+    
     createUser(submitData, {
       onSuccess: () => {
         toast.success(
@@ -248,19 +312,55 @@ export default function NewUserPage() {
               )}
             </div>
 
-            {/* Contacts */}
+            {/* Primary Contacts */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="primary_email">Primary Email *</Label>
+                <Input
+                  id="primary_email"
+                  type="email"
+                  {...register("primary_email")}
+                  disabled={isPending}
+                  placeholder="user@example.com"
+                />
+                {errors.primary_email && (
+                  <p className="text-sm text-destructive">{errors.primary_email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="primary_mobile">Primary Mobile Number *</Label>
+                <Input
+                  id="primary_mobile"
+                  type="tel"
+                  {...register("primary_mobile")}
+                  disabled={isPending}
+                  placeholder="+1234567890"
+                />
+                {errors.primary_mobile && (
+                  <p className="text-sm text-destructive">{errors.primary_mobile.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Additional Contacts (Optional) */}
             <div className="space-y-2">
-              <Label>Contacts *</Label>
-              {fields.map((field, index) => (
+              <Label>Additional Contacts (Optional)</Label>
+              {fields.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Add additional contact methods if needed
+                </p>
+              )}
+              {fields.map((field: { id: string }, index: number) => (
                 <div key={field.id} className="flex gap-2">
                   <div className="flex-1">
                     <Controller
-                      name={`contacts.${index}.contact_type_id`}
+                      name={`additional_contacts.${index}.contact_type_id`}
                       control={control}
-                      render={({ field }) => (
+                      render={({ field: controllerField }: { field: { value: string; onChange: (value: string) => void } }) => (
                         <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
+                          value={controllerField.value}
+                          onValueChange={controllerField.onChange}
                           disabled={isPending || loadingContactTypes}
                         >
                           <SelectTrigger>
@@ -277,40 +377,35 @@ export default function NewUserPage() {
                         </Select>
                       )}
                     />
-                    {errors.contacts?.[index]?.contact_type_id && (
+                    {errors.additional_contacts?.[index]?.contact_type_id && (
                       <p className="text-sm text-destructive">
-                        {errors.contacts[index]?.contact_type_id?.message}
+                        {errors.additional_contacts[index]?.contact_type_id?.message}
                       </p>
                     )}
                   </div>
                   <div className="flex-1">
                     <Input
-                      {...register(`contacts.${index}.contact`)}
+                      {...register(`additional_contacts.${index}.contact`)}
                       disabled={isPending}
                       placeholder="email@example.com or +1234567890"
                     />
-                    {errors.contacts?.[index]?.contact && (
+                    {errors.additional_contacts?.[index]?.contact && (
                       <p className="text-sm text-destructive">
-                        {errors.contacts[index]?.contact?.message}
+                        {errors.additional_contacts[index]?.contact?.message}
                       </p>
                     )}
                   </div>
-                  {fields.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => remove(index)}
-                      disabled={isPending}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => remove(index)}
+                    disabled={isPending}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               ))}
-              {errors.contacts && typeof errors.contacts.message === "string" && (
-                <p className="text-sm text-destructive">{errors.contacts.message}</p>
-              )}
               <Button
                 type="button"
                 variant="outline"
@@ -330,7 +425,7 @@ export default function NewUserPage() {
                 <Controller
                   name="role_id"
                   control={control}
-                  render={({ field }) => (
+                  render={({ field }: { field: { value: string | undefined; onChange: (value: string) => void } }) => (
                     <Select
                       value={field.value || undefined}
                       onValueChange={field.onChange}
