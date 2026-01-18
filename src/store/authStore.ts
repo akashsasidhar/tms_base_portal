@@ -93,6 +93,7 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
         authService.logout().catch((error) => {
           // Silently ignore logout API errors - we've already cleared state
           // This prevents infinite loops when token is invalid
+          console.warn('Backend logout failed:', error);
         });
         
         toast.success('Logged out successfully');

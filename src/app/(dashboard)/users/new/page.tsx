@@ -34,6 +34,7 @@ import Link from "next/link";
 import type { ContactType } from "@/types/contact.types";
 import type { Role } from "@/types/role.types";
 import { formatRoleName } from "@/lib/role-utils";
+import { generateUsername } from "@/utils/common.utils";
 
 // Validation schema
 // Password is optional - default password will be used and user will receive setup email
@@ -49,7 +50,7 @@ const createUserSchema = z
         z.object({
           contact_type_id: z.string().min(1, "Contact type is required"),
           contact: z.string().min(1, "Contact is required"),
-        })
+        }),
       )
       .min(1, "At least one contact is required"),
     role_id: z.string().uuid("Invalid role ID").optional(),
@@ -65,7 +66,7 @@ const createUserSchema = z
     {
       message: "Passwords don't match",
       path: ["confirm_password"],
-    }
+    },
   );
 
 type CreateUserFormData = z.infer<typeof createUserSchema>;
@@ -118,6 +119,22 @@ export default function NewUserPage() {
     name: "contacts",
   });
 
+  const firstName = watch("first_name");
+  const lastName = watch("last_name");
+
+  useEffect(() => {
+    if (!firstName && !lastName) return; // early exit if names are missing
+
+  const generated = generateUsername(firstName, lastName);
+
+  if (generated) {
+    setValue("username", generated, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  }
+}, [firstName, lastName, setValue]);
+
   // Fetch contact types on mount
   useEffect(() => {
     const fetchContactTypes = async () => {
@@ -165,7 +182,7 @@ export default function NewUserPage() {
         toast.success(
           password
             ? "User created successfully"
-            : "User created successfully. An email has been sent to the user to set up their password."
+            : "User created successfully. An email has been sent to the user to set up their password.",
         );
         router.push("/users");
       },
@@ -196,8 +213,6 @@ export default function NewUserPage() {
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-             
-
               <div className="space-y-2">
                 <Label htmlFor="first_name">First Name</Label>
                 <Input
@@ -207,31 +222,31 @@ export default function NewUserPage() {
                   placeholder="John"
                 />
               </div>
-              
-            <div className="space-y-2">
-              <Label htmlFor="last_name">Last Name</Label>
-              <Input
-                id="last_name"
-                {...register("last_name")}
-                disabled={isPending}
-                placeholder="Doe"
-              />
-            </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Last Name</Label>
+                <Input
+                  id="last_name"
+                  {...register("last_name")}
+                  disabled={isPending}
+                  placeholder="Doe"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  {...register("username")}
-                  disabled={isPending}
-                  placeholder="johndoe"
-                  readOnly
-                />
-                {errors.username && (
-                  <p className="text-sm text-destructive">{errors.username.message}</p>
-                )}
-              </div>
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                {...register("username")}
+                disabled={isPending}
+                placeholder="johndoe"
+                readOnly
+              />
+              {errors.username && (
+                <p className="text-sm text-destructive">{errors.username.message}</p>
+              )}
+            </div>
 
             {/* Contacts */}
             <div className="space-y-2">

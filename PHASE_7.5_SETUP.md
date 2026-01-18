@@ -123,7 +123,7 @@ import appConfig from '@/config/app.config';
 const apiUrl = appConfig.API_URL;
 
 // ❌ Wrong - Never do this
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+const apiUrl = appConfig.NEXT_PUBLIC_API_URL;
 ```
 
 ---
