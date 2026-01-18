@@ -207,28 +207,49 @@ export default function NewUserPage() {
   const onSubmit = async (data: CreateUserFormData) => {
     const { confirm_password, role_id, password, primary_email, primary_mobile, additional_contacts, ...createData } = data;
     
-    // Find email and mobile contact type IDs
-    const emailType = contactTypes.find(t => t.contact_type.toLowerCase() === 'email');
-    const mobileType = contactTypes.find(t => t.contact_type.toLowerCase() === 'mobile');
+    // Find primary email and primary mobile contact type IDs
+    const primaryEmailType = contactTypes.find(t => 
+      t.contact_type.toLowerCase() === 'primary email' || 
+      t.contact_type.toLowerCase() === 'primary_email'
+    );
+    const primaryMobileType = contactTypes.find(t => 
+      t.contact_type.toLowerCase() === 'primary mobile' || 
+      t.contact_type.toLowerCase() === 'primary_mobile'
+    );
     
-    if (!emailType || !mobileType) {
-      toast.error("Email or mobile contact type not found. Please contact administrator.");
+    if (!primaryEmailType || !primaryMobileType) {
+      toast.error("Primary email or primary mobile contact type not found. Please contact administrator.");
       return;
     }
 
     // Build contacts array: primary email and mobile first, then additional contacts
     // Filter out empty additional contacts (where both fields are empty)
+    // Also filter out primary email and primary mobile from additional contacts
     const validAdditionalContacts = (additional_contacts || []).filter(
-      (contact) => contact.contact_type_id && contact.contact && contact.contact.trim() !== ''
+      (contact) => {
+        if (!contact.contact_type_id || !contact.contact || contact.contact.trim() === '') {
+          return false;
+        }
+        // Exclude primary email and primary mobile from additional contacts
+        const contactType = contactTypes.find(t => t.id === contact.contact_type_id);
+        if (contactType) {
+          const typeName = contactType.contact_type.toLowerCase();
+          return typeName !== 'primary email' && 
+                 typeName !== 'primary_email' &&
+                 typeName !== 'primary mobile' &&
+                 typeName !== 'primary_mobile';
+        }
+        return true;
+      }
     );
 
     const contacts = [
       {
-        contact_type_id: emailType.id,
+        contact_type_id: primaryEmailType.id,
         contact: primary_email,
       },
       {
-        contact_type_id: mobileType.id,
+        contact_type_id: primaryMobileType.id,
         contact: primary_mobile,
       },
       ...validAdditionalContacts,
@@ -368,11 +389,20 @@ export default function NewUserPage() {
                           </SelectTrigger>
                           <SelectContent>
                             {contactTypes &&
-                              contactTypes.map(type => (
-                                <SelectItem key={type.id} value={type.id}>
-                                  {type.contact_type}
-                                </SelectItem>
-                              ))}
+                              contactTypes
+                                .filter(type => {
+                                  // Exclude primary email and primary mobile from additional contacts dropdown
+                                  const typeName = type.contact_type.toLowerCase();
+                                  return typeName !== 'primary email' && 
+                                         typeName !== 'primary_email' &&
+                                         typeName !== 'primary mobile' &&
+                                         typeName !== 'primary_mobile';
+                                })
+                                .map(type => (
+                                  <SelectItem key={type.id} value={type.id}>
+                                    {type.contact_type}
+                                  </SelectItem>
+                                ))}
                           </SelectContent>
                         </Select>
                       )}

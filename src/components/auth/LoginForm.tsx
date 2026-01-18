@@ -71,14 +71,17 @@ export default function LoginForm() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="contact">Email or Phone</Label>
+            <Label htmlFor="contact">Primary Email or Primary Mobile</Label>
             <Input
               id="contact"
               type="text"
-              placeholder="admin@example.com or +1234567890"
+              placeholder="your.primary@email.com or +1234567890"
               {...register('contact')}
               disabled={isSubmitting || isLoading}
             />
+            <p className="text-xs text-muted-foreground">
+              Use your primary email or primary mobile number to login
+            </p>
             {errors.contact && (
               <p className="text-sm text-destructive">{errors.contact.message}</p>
             )}

@@ -89,8 +89,18 @@ export default function UsersPage() {
           <LoadingSpinner size="lg" text="Loading users..." />
         </div>
       ) : error ? (
-        <div className="text-center py-12">
-          <p className="text-destructive">Failed to load users. Please try again.</p>
+        <div className="text-center py-12 space-y-4">
+          <p className="text-destructive font-medium">Failed to load users.</p>
+          <p className="text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : 'An unexpected error occurred'}
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => window.location.reload()}
+            className="mt-4"
+          >
+            Reload Page
+          </Button>
         </div>
       ) : !data?.data || data.data.length === 0 ? (
         <div className="text-center py-12">
@@ -104,81 +114,114 @@ export default function UsersPage() {
                 <TableRow>
                   <TableHead>Username</TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead>Contacts</TableHead>
+                  <TableHead>Primary Email</TableHead>
+                  <TableHead>Mobile</TableHead>
                   <TableHead>Roles</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.data.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.username}</TableCell>
-                    <TableCell>
-                      {user.first_name || user.last_name
-                        ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
-                        : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {user.contacts.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {user.contacts.slice(0, 2).map((contact) => (
-                            <span key={contact.id} className="text-sm">
-                              {contact.contact}
-                            </span>
-                          ))}
-                          {user.contacts.length > 2 && (
-                            <span className="text-xs text-muted-foreground">
-                              +{user.contacts.length - 2} more
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {user.roles.length > 0 ? (
-                        <Badge variant="secondary">
-                          {formatRoleName(user.roles[0].name)}
+                {data.data.map((user) => {
+                  // Get primary email contact
+                  // Priority: 1) Contact type is "primary email", 2) Contact type is "email" AND is_primary is true
+                  const primaryEmail = user.contacts.find(
+                    (c) => {
+                      const type = c.contact_type?.toLowerCase();
+                      // Check if it's a primary email type
+                      if (type === 'primary email' || type === 'primary_email') {
+                        return true;
+                      }
+                      // Check if it's a regular email that's marked as primary
+                      if (type === 'email' && c.is_primary) {
+                        return true;
+                      }
+                      return false;
+                    }
+                  );
+
+                  // Get primary mobile contact
+                  // Priority: 1) Contact type is "primary mobile", 2) Contact type is "mobile" AND is_primary is true
+                  const primaryMobile = user.contacts.find(
+                    (c) => {
+                      const type = c.contact_type?.toLowerCase();
+                      // Check if it's a primary mobile type
+                      if (type === 'primary mobile' || type === 'primary_mobile') {
+                        return true;
+                      }
+                      // Check if it's a regular mobile that's marked as primary
+                      if ((type === 'mobile' || type === 'phone') && c.is_primary) {
+                        return true;
+                      }
+                      return false;
+                    }
+                  );
+
+                  return (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell>
+                        {user.first_name || user.last_name
+                          ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {primaryEmail ? (
+                          <span className="text-sm">{primaryEmail.contact}</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {primaryMobile ? (
+                          <span className="text-sm">{primaryMobile.contact}</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {user.roles.length > 0 ? (
+                          <Badge variant="secondary">
+                            {formatRoleName(user.roles[0].name)}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.is_active ? 'default' : 'secondary'}>
+                          {user.is_active ? 'Active' : 'Inactive'}
                         </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.is_active ? 'default' : 'secondary'}>
-                        {user.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/users/${user.id}`} className="flex items-center">
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
-                            </Link>
-                          </DropdownMenuItem>
-                          {canUpdate && (
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/users/${user.id}/edit`} className="flex items-center">
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Edit
+                              <Link href={`/users/${user.id}`} className="flex items-center">
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
                               </Link>
                             </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                            {canUpdate && (
+                              <DropdownMenuItem asChild>
+                                <Link href={`/users/${user.id}/edit`} className="flex items-center">
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

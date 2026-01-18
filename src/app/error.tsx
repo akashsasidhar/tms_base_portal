@@ -16,8 +16,22 @@ export default function Error({ error, reset }: ErrorProps) {
     // Log error to console in development
     if (process.env.NODE_ENV === 'development') {
       console.error('Application error:', error);
+      console.error('Error stack:', error.stack);
     }
   }, [error]);
+
+  // Safely handle reset - wrap in try-catch to prevent cascading errors
+  const handleReset = () => {
+    try {
+      reset();
+    } catch (resetError) {
+      console.error('Error resetting:', resetError);
+      // Fallback: reload the page
+      if (typeof window !== 'undefined') {
+        window.location.href = '/dashboard';
+      }
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -32,11 +46,11 @@ export default function Error({ error, reset }: ErrorProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {process.env.NODE_ENV === 'development' && (
+          {process.env.NODE_ENV === 'development' && error && (
             <div className="rounded-md bg-muted p-4">
               <p className="text-sm font-medium text-destructive">Error Details:</p>
               <p className="mt-2 text-sm text-muted-foreground font-mono break-all">
-                {error.message}
+                {error.message || 'Unknown error'}
               </p>
               {error.digest && (
                 <p className="mt-2 text-xs text-muted-foreground">
@@ -47,7 +61,7 @@ export default function Error({ error, reset }: ErrorProps) {
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-2 sm:flex-row">
-          <Button onClick={reset} variant="default" className="w-full sm:w-auto">
+          <Button onClick={handleReset} variant="default" className="w-full sm:w-auto">
             <RefreshCw className="mr-2 h-4 w-4" />
             Try Again
           </Button>
