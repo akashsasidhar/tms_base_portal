@@ -4,6 +4,10 @@ import "./globals.css";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { ToastProvider } from "@/providers/ToastProvider";
 import appConfig from "@/config/app.config";
+import { validateServerEnv } from "@/config/env.config";
+// app/layout.tsx
+
+validateServerEnv();
 
 const inter = Inter({ subsets: ["latin"] });
 

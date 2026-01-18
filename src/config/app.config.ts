@@ -25,11 +25,6 @@ interface AppConfig {
   readonly MAX_PAGE_SIZE: number;
 }
 
-// Required environment variables
-const REQUIRED_ENV_VARS = {
-  NEXT_PUBLIC_API_URL: 'API URL',
-} as const;
-
 // Helper function to safely access environment variables
 const getEnv = (key: string, defaultValue: string): string => {
   if (typeof window === 'undefined') {
@@ -41,32 +36,6 @@ const getEnv = (key: string, defaultValue: string): string => {
   return process.env[publicKey] ?? defaultValue;
 };
 
-// Validate required environment variables at runtime
-const validateEnv = (): void => {
-  const missing: string[] = [];
-
-  Object.entries(REQUIRED_ENV_VARS).forEach(([key, name]) => {
-    const value = getEnv(key, '');
-    if (!value) {
-      missing.push(`${key} (${name})`);
-    }
-  });
-
-  if (missing.length > 0) {
-    const errorMessage = `Missing required environment variables:\n${missing.join('\n')}`;
-    
-    if (typeof window !== 'undefined') {
-      // Client-side: log error
-      console.error(errorMessage);
-    } else {
-      // Server-side: throw error
-      throw new Error(errorMessage);
-    }
-  }
-};
-
-// Validate on module load
-validateEnv();
 
 const appConfig: AppConfig = {
   // API Configuration
