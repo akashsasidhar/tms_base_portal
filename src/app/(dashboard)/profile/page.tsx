@@ -1,22 +1,32 @@
-'use client';
+"use client";
 
-import { useAuth } from '@/hooks/useAuth';
-import { usePermissions } from '@/hooks/usePermissions';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Mail, Phone, Shield, Calendar, User as UserIcon, CheckCircle2, XCircle, Pencil } from 'lucide-react';
-import Link from 'next/link';
-import LoadingSpinner from '@/components/common/LoadingSpinner';
-import ContactBadge from '@/components/common/ContactBadge';
-import RoleBadge from '@/components/common/RoleBadge';
-import { format } from 'date-fns';
+import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  Shield,
+  Calendar,
+  User as UserIcon,
+  CheckCircle2,
+  XCircle,
+  Pencil,
+} from "lucide-react";
+import Link from "next/link";
+import LoadingSpinner from "@/components/common/LoadingSpinner";
+import ContactBadge from "@/components/common/ContactBadge";
+import RoleBadge from "@/components/common/RoleBadge";
+import { format } from "date-fns";
 
 export default function ProfilePage() {
   const { user, isLoading, hasRole } = useAuth();
   const { hasPermission, permissions } = usePermissions();
-  const canUpdate = hasPermission('users:update');
-  const isSuperAdmin = hasRole('super_admin');
+  const canUpdate = hasPermission("users:update");
+  const isSuperAdmin = hasRole("super_admin");
 
   if (isLoading) {
     return (
@@ -36,9 +46,10 @@ export default function ProfilePage() {
     );
   }
 
-  const displayName = user.first_name || user.last_name
-    ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
-    : user.username;
+  const displayName =
+    user.first_name || user.last_name
+      ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+      : user.username;
 
   return (
     <div className="space-y-6">
@@ -54,7 +65,9 @@ export default function ProfilePage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold break-words">My Profile</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">View and manage your account information</p>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            View and manage your account information
+          </p>
         </div>
         {canUpdate && (
           <Link href={`/users/${user.id}/edit`}>
@@ -76,24 +89,33 @@ export default function ProfilePage() {
             </CardTitle>
             <CardDescription>Your account information</CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-4">
+            {/* Username */}
             <div>
               <label className="text-sm font-medium text-muted-foreground">Username</label>
               <p className="text-base font-medium">{user.username}</p>
             </div>
-            {user.first_name && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">First Name</label>
-                <p className="text-base">{user.first_name}</p>
+
+            {/* First & Last Name Row */}
+            {(user.first_name || user.last_name) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {user.first_name && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">First Name</label>
+                    <p className="text-base">{user.first_name}</p>
+                  </div>
+                )}
+
+                {user.last_name && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Last Name</label>
+                    <p className="text-base">{user.last_name}</p>
+                  </div>
+                )}
               </div>
             )}
-            {user.last_name && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Last Name</label>
-                <p className="text-base">{user.last_name}</p>
-              </div>
-            )}
-            <div>
+            {/* <div>
               <label className="text-sm font-medium text-muted-foreground">Status</label>
               <div className="mt-1">
                 <Badge variant={user.is_active ? 'default' : 'secondary'} className="flex items-center gap-1 w-fit">
@@ -110,14 +132,14 @@ export default function ProfilePage() {
                   )}
                 </Badge>
               </div>
-            </div>
+            </div> */}
             {user.created_at && (
               <div>
                 <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   Member Since
                 </label>
-                <p className="text-base">{format(new Date(user.created_at), 'MMMM d, yyyy')}</p>
+                <p className="text-base">{format(new Date(user.created_at), "MMMM d, yyyy")}</p>
               </div>
             )}
           </CardContent>
@@ -130,18 +152,15 @@ export default function ProfilePage() {
               <Mail className="h-5 w-5" />
               Contacts
             </CardTitle>
-            <CardDescription>{user.contacts.length} contact(s)</CardDescription>
+            <CardDescription>
+              {user.contacts.length} contact{user.contacts.length < 1 ? "s" : ""}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {user.contacts.length > 0 ? (
               <div className="space-y-2">
-                {user.contacts.map((contact) => (
-                  <ContactBadge
-                    key={contact.id}
-                    contact={contact}
-                    showType
-                    copyable
-                  />
+                {user.contacts.map(contact => (
+                  <ContactBadge key={contact.id} contact={contact} showType copyable />
                 ))}
               </div>
             ) : (
@@ -157,7 +176,9 @@ export default function ProfilePage() {
               <Shield className="h-5 w-5" />
               Roles
             </CardTitle>
-            <CardDescription>{user.roles.length > 0 ? 'Role assigned' : 'No role assigned'}</CardDescription>
+            <CardDescription>
+              {user.roles.length > 0 ? "Role assigned" : "No role assigned"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {user.roles.length > 0 ? (
