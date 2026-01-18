@@ -27,8 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Loader2, Plus, X } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, X, Info } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import type { ContactType } from "@/types/contact.types";
@@ -320,7 +326,19 @@ export default function NewUserPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="username">Username</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-sm">Username will be generated automatically based on your first and last name</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Input
                 id="username"
                 {...register("username")}
