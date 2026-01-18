@@ -102,27 +102,11 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
       // Check authentication status
       checkAuth: async () => {
         set({ isLoading: true });
-        
-        // Check if refresh token exists before making API call
-        if (typeof window !== 'undefined') {
-          const hasRefreshToken = document.cookie.split(';').some(c => c.trim().startsWith('refreshToken='));
-          if (!hasRefreshToken) {
-            // No refresh token - force logout immediately
-            set({
-              user: null,
-              permissions: [],
-              isAuthenticated: false,
-              isLoading: false,
-              error: null,
-            });
-            localStorage.removeItem('auth-storage');
-            sessionStorage.clear();
-            // Throw error to trigger redirect in layout
-            throw new Error('Refresh token not available');
-          }
-        }
 
         try {
+          // Make API call to verify session
+          // HTTP-only cookies are automatically sent via withCredentials: true
+          // If cookies are invalid/missing, API will return 401
           const result = await authService.getCurrentUser();
           // getCurrentUser returns { user, permissions }
           set({ 
@@ -132,7 +116,7 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
             isLoading: false 
           });
         } catch (error) {
-          // If checkAuth fails, clear state and force logout
+          // If checkAuth fails (invalid/missing cookies), clear state
           set({ 
             user: null, 
             permissions: [], 

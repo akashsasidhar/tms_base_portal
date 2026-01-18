@@ -1,7 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import appConfig from '@/config/app.config';
-import { hasRefreshToken } from '@/utils/cookie.util';
 
 const apiClient = axios.create({
   baseURL: appConfig.API_URL,
@@ -47,27 +46,9 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Check if refresh token exists before attempting refresh
-        if (!hasRefreshToken()) {
-          // No refresh token available - force logout (but don't call logout API again)
-          if (typeof window !== 'undefined') {
-            // Import authStore dynamically to avoid circular dependency
-            import('@/store/authStore').then(({ useAuthStore }) => {
-              const store = useAuthStore.getState();
-              // Clear state without calling logout API (to prevent loop)
-              store.setUser(null);
-              store.setPermissions([]);
-              store.setLoading(false);
-              if (typeof window !== 'undefined') {
-                localStorage.removeItem('auth-storage');
-                sessionStorage.clear();
-              }
-            });
-          }
-          return Promise.reject(new Error('Refresh token not available'));
-        }
-
         // Attempt to refresh token
+        // HTTP-only cookies are automatically sent via withCredentials: true
+        // If cookies are missing/invalid, this will return 401
         await apiClient.post('/auth/refresh');
         // Retry original request
         return apiClient(originalRequest);
@@ -107,6 +88,7 @@ apiClient.interceptors.response.use(
       
       // Optionally redirect to dashboard after a delay
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/dashboard')) {
+        console.log('-------uimheeeeeeeeeeeeeeeeeeeeeeeee')
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 2000);
