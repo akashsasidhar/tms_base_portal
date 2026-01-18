@@ -24,14 +24,19 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor with comprehensive error handling
+// Response interceptor with comprehensive error handling and retry mechanism
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { 
       _retry?: boolean;
       _skipRefresh?: boolean;
+      _retryCount?: number;
     };
+
+    // Initialize retry count if not set
+    const retryCount = originalRequest._retryCount || 0;
+    const MAX_RETRIES = 2;
 
     // Skip token refresh for logout and public auth endpoints
     const isLogoutRequest = originalRequest.url?.includes('/auth/logout');
@@ -41,9 +46,74 @@ apiClient.interceptors.response.use(
       originalRequest.url?.includes('/auth/reset-password') ||
       originalRequest.url?.includes('/auth/setup-password');
 
+    // Skip retry mechanism for 401 errors (handled separately with token refresh)
+    // Skip retry for logout and public auth endpoints
+    const shouldSkipRetry = 
+      error.response?.status === 401 || 
+      isLogoutRequest || 
+      isPublicAuthEndpoint ||
+      originalRequest._skipRefresh;
+
+    // Determine if error is retryable
+    const isRetryableError = (): boolean => {
+      // Don't retry if should skip
+      if (shouldSkipRetry) {
+        return false;
+      }
+
+      // Don't retry if already retried max times
+      if (retryCount >= MAX_RETRIES) {
+        return false;
+      }
+
+      // Don't retry for non-retryable status codes (4xx client errors, except 408, 429)
+      if (error.response?.status) {
+        const status = error.response.status;
+        // Retry on 5xx server errors
+        if (status >= 500 && status < 600) {
+          return true;
+        }
+        // Retry on 408 Request Timeout
+        if (status === 408) {
+          return true;
+        }
+        // Retry on 429 Too Many Requests
+        if (status === 429) {
+          return true;
+        }
+        // Don't retry on other 4xx client errors
+        if (status >= 400 && status < 500) {
+          return false;
+        }
+      }
+
+      // Retry on network errors (no response)
+      if (!error.response) {
+        return true;
+      }
+
+      return false;
+    };
+
+    // Retry mechanism for retryable errors
+    if (isRetryableError()) {
+      originalRequest._retryCount = retryCount + 1;
+
+      // Calculate delay: exponential backoff (1s, 2s)
+      const delay = Math.min(1000 * Math.pow(2, retryCount), 2000);
+
+      // Wait before retrying
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      // Retry the request
+      return apiClient(originalRequest);
+    }
+
     // Handle 401 Unauthorized - Token expired or invalid
+    // Skip retry mechanism for 401 as it has its own refresh token logic
     if (error.response?.status === 401 && !originalRequest._retry && !isLogoutRequest && !isPublicAuthEndpoint) {
       originalRequest._retry = true;
+      originalRequest._skipRefresh = true; // Prevent general retry mechanism from interfering
 
       try {
         // Attempt to refresh token
@@ -88,7 +158,6 @@ apiClient.interceptors.response.use(
       
       // Optionally redirect to dashboard after a delay
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/dashboard')) {
-        console.log('-------uimheeeeeeeeeeeeeeeeeeeeeeeee')
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 2000);
@@ -107,7 +176,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Handle 500 Internal Server Error
+    // Handle 500 Internal Server Error (after retries exhausted)
     if (error.response?.status === 500) {
       const errorMessage =
         (error.response?.data as { message?: string })?.message ||
@@ -119,7 +188,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Handle network errors
+    // Handle network errors (after retries exhausted)
     if (!error.response) {
       toast.error('Network error. Please check your connection and try again.', {
         duration: 5000,
