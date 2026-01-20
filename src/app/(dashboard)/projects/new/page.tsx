@@ -1,15 +1,25 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useState, useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useCreateProject } from '@/hooks/useProjects';
+import { useUsers } from '@/hooks/useUsers';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { User } from '@/types/user.types';
 import {
   Card,
   CardContent,
@@ -26,6 +36,7 @@ import Link from 'next/link';
 const createProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required').max(255, 'Project name must not exceed 255 characters'),
   description: z.string().max(5000, 'Description must not exceed 5000 characters').optional().nullable(),
+  project_manager_id: z.string().uuid('Invalid project manager ID').optional().nullable(),
   start_date: z.string().optional().nullable(),
   end_date: z.string().optional().nullable(),
 }).refine(
@@ -48,8 +59,27 @@ export default function NewProjectPage() {
   const router = useRouter();
   const { mutate: createProject, isPending } = useCreateProject();
   const { hasPermission } = usePermissions();
+  const [projectManagers, setProjectManagers] = useState<User[]>([]);
+  const [loadingManagers, setLoadingManagers] = useState(true);
 
   const canCreate = hasPermission('projects:create');
+
+  // Fetch users with Project Manager role
+  const { data: usersData } = useUsers({ limit: 1000, is_active: true });
+
+  useEffect(() => {
+    if (usersData?.data) {
+      // Filter users by Project Manager role
+      const filteredUsers = usersData.data.filter((u) => {
+        if (!u.roles || u.roles.length === 0) return false;
+        return u.roles.some(
+          (role) => role.name.toLowerCase() === 'project manager'
+        );
+      });
+      setProjectManagers(filteredUsers);
+      setLoadingManagers(false);
+    }
+  }, [usersData]);
 
   if (!canCreate) {
     return (
@@ -70,21 +100,29 @@ export default function NewProjectPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<CreateProjectFormData>({
     resolver: zodResolver(createProjectSchema),
     defaultValues: {
       name: '',
       description: '',
+      project_manager_id: null,
       start_date: '',
       end_date: '',
     },
   });
 
+  const getUserDisplayName = (user: User): string => {
+    const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    return name || user.username;
+  };
+
   const onSubmit = async (data: CreateProjectFormData) => {
     const submitData = {
       name: data.name,
       description: data.description || null,
+      project_manager_id: data.project_manager_id || null,
       start_date: data.start_date || null,
       end_date: data.end_date || null,
     };
@@ -144,6 +182,40 @@ export default function NewProjectPage() {
               {errors.description && (
                 <p className="text-sm text-destructive">{errors.description.message}</p>
               )}
+            </div>
+
+            {/* Project Manager Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="project_manager_id">Project Manager (Optional)</Label>
+              <Controller
+                name="project_manager_id"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value || 'none'}
+                    onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
+                    disabled={isPending || loadingManagers}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a project manager (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None (Admin will handle)</SelectItem>
+                      {projectManagers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {getUserDisplayName(user)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.project_manager_id && (
+                <p className="text-sm text-destructive">{errors.project_manager_id.message}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                If no project manager is assigned, admin will handle the project
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

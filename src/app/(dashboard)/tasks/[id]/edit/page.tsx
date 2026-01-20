@@ -46,6 +46,8 @@ const updateTaskSchema = z.object({
   status: z.enum(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE']).optional(),
   started_date: z.string().optional().nullable(),
   due_date: z.string().optional().nullable(),
+  input_file_url: z.string().url('Invalid URL format').max(500, 'URL must not exceed 500 characters').optional().nullable(),
+  output_file_url: z.string().url('Invalid URL format').max(500, 'URL must not exceed 500 characters').optional().nullable(),
   is_active: z.boolean().optional(),
   assignee_ids: z.array(z.string().uuid('Invalid assignee ID')).optional(),
 }).refine(
@@ -117,6 +119,8 @@ export default function EditTaskPage({
   const canSetDueDate = hasPermission('tasks:update') || hasPermission('projects:update'); // Project Manager/Admin
   const isAssignee = task?.assignees?.some((a) => a.user_id === user?.id) || false;
   const canEdit = canUpdate || isAssignee; // Task assignees can also edit
+  const canSetInputFile = canUpdate; // PM/Admin only
+  const canSetOutputFile = isAssignee || canUpdate; // Assignees or PM/Admin
 
   const {
     register,
@@ -140,6 +144,8 @@ export default function EditTaskPage({
         status: task.status,
         started_date: task.started_date ? new Date(task.started_date).toISOString().split('T')[0] : '',
         due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '',
+        input_file_url: task.input_file_url || '',
+        output_file_url: task.output_file_url || '',
         is_active: task.is_active,
         assignee_ids: task.assignees?.map((a) => a.user_id) || [],
       });
@@ -204,11 +210,19 @@ export default function EditTaskPage({
       if (canSetDueDate && data.due_date !== undefined) {
         submitData.due_date = data.due_date || null;
       }
+      if (data.input_file_url !== undefined) {
+        submitData.input_file_url = data.input_file_url || null;
+      }
     } else {
       // Assignees can only update started_date, not due_date
       if (data.started_date !== undefined) {
         submitData.started_date = data.started_date || null;
       }
+    }
+
+    // Output file URL can be set by assignees or PM/Admin
+    if (canSetOutputFile && data.output_file_url !== undefined) {
+      submitData.output_file_url = data.output_file_url || null;
     }
 
     updateTask(
@@ -428,6 +442,46 @@ export default function EditTaskPage({
                 />
                 {errors.due_date && (
                   <p className="text-sm text-destructive">{errors.due_date.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* File URLs */}
+            <div className="space-y-4">
+              {canSetInputFile && (
+                <div className="space-y-2">
+                  <Label htmlFor="input_file_url">
+                    Input File URL (PM/Admin only) <span className="text-muted-foreground text-xs">(PSD, DOC, FIGMA, ZIP, etc.)</span>
+                  </Label>
+                  <Input
+                    id="input_file_url"
+                    type="url"
+                    {...register('input_file_url')}
+                    disabled={isPending}
+                    placeholder="https://example.com/files/design.psd"
+                  />
+                  {errors.input_file_url && (
+                    <p className="text-sm text-destructive">{errors.input_file_url.message}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="output_file_url">
+                  Output File URL (Assignee) <span className="text-muted-foreground text-xs">(Edited/final file)</span>
+                </Label>
+                <Input
+                  id="output_file_url"
+                  type="url"
+                  {...register('output_file_url')}
+                  disabled={isPending || !canSetOutputFile}
+                  placeholder="https://example.com/files/final-design.psd"
+                />
+                {errors.output_file_url && (
+                  <p className="text-sm text-destructive">{errors.output_file_url.message}</p>
+                )}
+                {!canSetOutputFile && (
+                  <p className="text-xs text-muted-foreground">Only assigned users or PM/Admin can set the output file URL</p>
                 )}
               </div>
             </div>

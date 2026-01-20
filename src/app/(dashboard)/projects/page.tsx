@@ -130,6 +130,7 @@ export default function ProjectsPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>Project Manager</TableHead>
                   <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
                   <TableHead>Created By</TableHead>
@@ -148,6 +149,13 @@ export default function ProjectsPage() {
                       <TableCell className="font-medium">{project.name}</TableCell>
                       <TableCell className="max-w-md truncate">
                         {project.description || '-'}
+                      </TableCell>
+                      <TableCell>
+                        {project.project_manager ? (
+                          `${project.project_manager.first_name || ''} ${project.project_manager.last_name || ''}`.trim() || project.project_manager.username
+                        ) : (
+                          <span className="text-muted-foreground italic">Not assigned</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {project.start_date ? format(new Date(project.start_date), 'MMM dd, yyyy') : '-'}

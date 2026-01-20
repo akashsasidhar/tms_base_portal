@@ -13,6 +13,8 @@ export interface Task {
   created_by: string;
   started_date: string | null;
   due_date: string | null;
+  input_file_url: string | null;
+  output_file_url: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -49,6 +51,8 @@ export interface CreateTaskRequest {
   status?: 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
   started_date?: string | null;
   due_date?: string | null;
+  input_file_url?: string | null;
+  output_file_url?: string | null;
   assignee_ids?: string[];
 }
 
@@ -61,6 +65,8 @@ export interface UpdateTaskRequest {
   status?: 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
   started_date?: string | null;
   due_date?: string | null;
+  input_file_url?: string | null;
+  output_file_url?: string | null;
   is_active?: boolean;
   assignee_ids?: string[];
 }

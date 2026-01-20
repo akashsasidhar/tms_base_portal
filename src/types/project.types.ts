@@ -7,6 +7,7 @@ export interface Project {
   name: string;
   description: string | null;
   created_by: string;
+  project_manager_id: string | null;
   start_date: string | null;
   end_date: string | null;
   is_active: boolean;
@@ -18,11 +19,18 @@ export interface Project {
     first_name: string | null;
     last_name: string | null;
   } | null;
+  project_manager?: {
+    id: string;
+    username: string;
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
 }
 
 export interface CreateProjectRequest {
   name: string;
   description?: string | null;
+  project_manager_id?: string | null;
   start_date?: string | null;
   end_date?: string | null;
 }
@@ -30,6 +38,7 @@ export interface CreateProjectRequest {
 export interface UpdateProjectRequest {
   name?: string;
   description?: string | null;
+  project_manager_id?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   is_active?: boolean;

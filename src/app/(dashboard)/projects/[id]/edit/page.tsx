@@ -1,16 +1,25 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useProject, useUpdateProject } from '@/hooks/useProjects';
+import { useUsers } from '@/hooks/useUsers';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { User } from '@/types/user.types';
 import {
   Card,
   CardContent,
@@ -27,6 +36,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 const updateProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required').max(255, 'Project name must not exceed 255 characters'),
   description: z.string().max(5000, 'Description must not exceed 5000 characters').optional().nullable(),
+  project_manager_id: z.string().uuid('Invalid project manager ID').optional().nullable(),
   start_date: z.string().optional().nullable(),
   end_date: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
@@ -55,17 +65,42 @@ export default function EditProjectPage({
   const { data: project, isLoading: isLoadingProject } = useProject(params.id);
   const { mutate: updateProject, isPending } = useUpdateProject();
   const { hasPermission } = usePermissions();
+  const [projectManagers, setProjectManagers] = useState<User[]>([]);
+  const [loadingManagers, setLoadingManagers] = useState(true);
 
   const canUpdate = hasPermission('projects:update');
+
+  // Fetch users with Project Manager role
+  const { data: usersData } = useUsers({ limit: 1000, is_active: true });
+
+  useEffect(() => {
+    if (usersData?.data) {
+      // Filter users by Project Manager role
+      const filteredUsers = usersData.data.filter((u) => {
+        if (!u.roles || u.roles.length === 0) return false;
+        return u.roles.some(
+          (role) => role.name.toLowerCase() === 'project manager'
+        );
+      });
+      setProjectManagers(filteredUsers);
+      setLoadingManagers(false);
+    }
+  }, [usersData]);
 
   const {
     register,
     handleSubmit,
+    control,
     reset,
     formState: { errors },
   } = useForm<UpdateProjectFormData>({
     resolver: zodResolver(updateProjectSchema),
   });
+
+  const getUserDisplayName = (user: User): string => {
+    const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    return name || user.username;
+  };
 
   // Populate form when project data loads
   useEffect(() => {
@@ -73,6 +108,7 @@ export default function EditProjectPage({
       reset({
         name: project.name,
         description: project.description || '',
+        project_manager_id: project.project_manager_id || null,
         start_date: project.start_date ? new Date(project.start_date).toISOString().split('T')[0] : '',
         end_date: project.end_date ? new Date(project.end_date).toISOString().split('T')[0] : '',
         is_active: project.is_active,
@@ -124,6 +160,7 @@ export default function EditProjectPage({
     const submitData = {
       name: data.name,
       description: data.description || null,
+      project_manager_id: data.project_manager_id || null,
       start_date: data.start_date || null,
       end_date: data.end_date || null,
       is_active: data.is_active,
@@ -187,6 +224,40 @@ export default function EditProjectPage({
               {errors.description && (
                 <p className="text-sm text-destructive">{errors.description.message}</p>
               )}
+            </div>
+
+            {/* Project Manager Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="project_manager_id">Project Manager (Optional)</Label>
+              <Controller
+                name="project_manager_id"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value || 'none'}
+                    onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
+                    disabled={isPending || loadingManagers}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a project manager (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None (Admin will handle)</SelectItem>
+                      {projectManagers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {getUserDisplayName(user)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.project_manager_id && (
+                <p className="text-sm text-destructive">{errors.project_manager_id.message}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                If no project manager is assigned, admin will handle the project
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

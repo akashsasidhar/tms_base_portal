@@ -45,6 +45,8 @@ const createTaskSchema = z.object({
   status: z.enum(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE']).optional().default('TODO'),
   started_date: z.string().optional().nullable(),
   due_date: z.string().optional().nullable(),
+  input_file_url: z.string().url('Invalid URL format').max(500, 'URL must not exceed 500 characters').optional().nullable(),
+  output_file_url: z.string().url('Invalid URL format').max(500, 'URL must not exceed 500 characters').optional().nullable(),
   assignee_ids: z.array(z.string().uuid('Invalid assignee ID')).optional(),
 }).refine(
   (data) => {
@@ -141,6 +143,8 @@ export default function NewTaskPage() {
       status: 'TODO',
       started_date: '',
       due_date: '',
+      input_file_url: '',
+      output_file_url: '',
       assignee_ids: [],
     },
   });
@@ -155,6 +159,8 @@ export default function NewTaskPage() {
       status: data.status,
       started_date: data.started_date || null,
       due_date: canSetDueDate ? (data.due_date || null) : null,
+      input_file_url: data.input_file_url || null, // Optional raw file URL
+      output_file_url: null, // Assignees set this later
       assignee_ids: data.assignee_ids || [],
     };
 
@@ -370,6 +376,25 @@ export default function NewTaskPage() {
                 />
                 {errors.due_date && (
                   <p className="text-sm text-destructive">{errors.due_date.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* File URLs */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="input_file_url">
+                  Raw File URL (Optional) <span className="text-muted-foreground text-xs">(PSD, DOC, FIGMA, ZIP, etc.)</span>
+                </Label>
+                <Input
+                  id="input_file_url"
+                  type="url"
+                  {...register('input_file_url')}
+                  disabled={isPending}
+                  placeholder="https://example.com/files/design.psd"
+                />
+                {errors.input_file_url && (
+                  <p className="text-sm text-destructive">{errors.input_file_url.message}</p>
                 )}
               </div>
             </div>
