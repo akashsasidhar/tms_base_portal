@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
@@ -93,6 +93,9 @@ export default function NewTaskPage() {
   const canCreate = hasPermission('tasks:create');
   const canSetDueDate = hasPermission('tasks:update') || hasPermission('projects:update'); // Project Manager/Admin
 
+  // Get task type from form
+  const taskType = useWatch({ control, name: 'task_type' });
+
   // Fetch projects
   const { data: projectsData } = useProjects({ limit: 1000, is_active: true });
 
@@ -107,21 +110,31 @@ export default function NewTaskPage() {
   }, [projectsData]);
 
   useEffect(() => {
-    if (usersList) {
-      // Filter users by role: Designer, Developer, Marketing
-      const filteredUsers = usersList.filter((u) => {
-        if (!u.roles || u.roles.length === 0) return false;
-        return u.roles.some(
-          (role) =>
-            role.name.toLowerCase() === 'designer' ||
-            role.name.toLowerCase() === 'developer' ||
-            role.name.toLowerCase() === 'marketing'
-        );
-      });
-      setAssignableUsers(filteredUsers);
+    if (usersList && taskType) {
+      // Filter users based on selected task type
+      const roleMap: Record<string, string> = {
+        'Designer': 'designer',
+        'Developer': 'developer',
+        'Marketing': 'marketing',
+      };
+      
+      const targetRole = roleMap[taskType];
+      if (targetRole) {
+        const filteredUsers = usersList.filter((u) => {
+          if (!u.roles || u.roles.length === 0) return false;
+          return u.roles.some((role) => role.name.toLowerCase() === targetRole);
+        });
+        setAssignableUsers(filteredUsers);
+      } else {
+        setAssignableUsers([]);
+      }
+      setLoadingUsers(false);
+    } else if (usersList && !taskType) {
+      // No task type selected, show no users
+      setAssignableUsers([]);
       setLoadingUsers(false);
     }
-  }, [usersList]);
+  }, [usersList, taskType]);
 
   if (!canCreate) {
     return (
@@ -411,63 +424,46 @@ export default function NewTaskPage() {
               </div>
             </div>
 
-            {/* Task Assignees - Multiple selection */}
+            {/* Task Assignee - Single selection based on task type */}
             <div className="space-y-2">
-              <Label>Task Assignees (Designer/Developer/Marketing)</Label>
+              <Label>Task Assignee {taskType ? `(${taskType})` : '(Select task type first)'}</Label>
               <Controller
                 name="assignee_ids"
                 control={control}
                 render={({ field }) => {
-                  const selectedIds = field.value || [];
+                  // For single select, we'll store as array with one item (to match API structure)
+                  const selectedId = field.value && field.value.length > 0 ? field.value[0] : '';
+                  
                   return (
                     <div className="space-y-2">
-                      <Select
-                        value=""
-                        onValueChange={(value) => {
-                          if (value && !selectedIds.includes(value)) {
-                            field.onChange([...selectedIds, value]);
-                          }
-                        }}
-                        disabled={isPending || loadingUsers}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Add assignee..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {assignableUsers
-                            .filter((user) => !selectedIds.includes(user.id))
-                            .map((user) => (
+                      {!taskType ? (
+                        <p className="text-sm text-muted-foreground">
+                          Please select a task type first to see available assignees.
+                        </p>
+                      ) : assignableUsers.length > 0 ? (
+                        <Select
+                          value={selectedId}
+                          onValueChange={(value) => {
+                            // Store as array with single item to match API structure
+                            field.onChange(value ? [value] : []);
+                          }}
+                          disabled={isPending || loadingUsers}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={`Select ${taskType} assignee...`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {assignableUsers.map((user) => (
                               <SelectItem key={user.id} value={user.id}>
                                 {getUserDisplayName(user)} ({user.roles?.[0]?.name || 'No role'})
                               </SelectItem>
                             ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedIds.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {selectedIds.map((userId) => {
-                            const user = assignableUsers.find((u) => u.id === userId);
-                            if (!user) return null;
-                            return (
-                              <Badge
-                                key={userId}
-                                variant="secondary"
-                                className="flex items-center gap-1"
-                              >
-                                {getUserDisplayName(user)}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    field.onChange(selectedIds.filter((id) => id !== userId));
-                                  }}
-                                  className="ml-1 hover:text-destructive"
-                                >
-                                  ×
-                                </button>
-                              </Badge>
-                            );
-                          })}
-                        </div>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No {taskType} users available for assignment.
+                        </p>
                       )}
                     </div>
                   );

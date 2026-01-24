@@ -34,7 +34,7 @@ export default function DashboardLayout({
     <div className="h-screen flex overflow-hidden">
       {/* Sidebar: fixed height, own scroll */}
       <aside className="h-full overflow-y-auto shrink-0">
-        <Sidebar />
+      <Sidebar />
       </aside>
 
       {/* Right side */}
@@ -51,7 +51,7 @@ export default function DashboardLayout({
 
         {/* Footer: fixed */}
         <footer className="shrink-0">
-          <Footer />
+        <Footer />
         </footer>
       </div>
     </div>

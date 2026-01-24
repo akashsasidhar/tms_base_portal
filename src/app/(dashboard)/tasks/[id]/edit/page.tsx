@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
@@ -108,43 +108,6 @@ export default function EditTaskPage({
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
-  // Fetch projects
-  const { data: projectsData } = useProjects({ limit: 1000, is_active: true });
-
-  // Fetch users with Designer/Developer/Marketing roles using the list endpoint (no permission required)
-  const { data: usersList } = useUsersList({ is_active: true });
-
-  useEffect(() => {
-    if (projectsData?.data) {
-      setProjects(projectsData.data);
-      setLoadingProjects(false);
-    }
-  }, [projectsData]);
-
-  useEffect(() => {
-    if (usersList) {
-      // Filter users by role: Designer, Developer, Marketing
-      const filteredUsers = usersList.filter((u) => {
-        if (!u.roles || u.roles.length === 0) return false;
-        return u.roles.some(
-          (role) =>
-            role.name.toLowerCase() === 'designer' ||
-            role.name.toLowerCase() === 'developer' ||
-            role.name.toLowerCase() === 'marketing'
-        );
-      });
-      setAssignableUsers(filteredUsers);
-      setLoadingUsers(false);
-    }
-  }, [usersList]);
-
-  const canUpdate = hasPermission('tasks:update');
-  const canSetDueDate = hasPermission('tasks:update') || hasPermission('projects:update'); // Project Manager/Admin
-  const isAssignee = task?.assignees?.some((a) => a.user_id === user?.id) || false;
-  const canEdit = canUpdate || isAssignee; // Task assignees can also edit
-  const canSetInputFile = canUpdate; // PM/Admin only
-  const canSetOutputFile = isAssignee || canUpdate; // Assignees or PM/Admin
-
   const {
     register,
     handleSubmit,
@@ -169,44 +132,96 @@ export default function EditTaskPage({
     },
   });
 
+  // Get task type from form for filtering assignees
+  const taskType = useWatch({ control, name: 'task_type' });
+
+  // Fetch projects
+  const { data: projectsData } = useProjects({ limit: 1000, is_active: true });
+
+  // Fetch users with Designer/Developer/Marketing roles using the list endpoint (no permission required)
+  const { data: usersList } = useUsersList({ is_active: true });
+
+  useEffect(() => {
+    if (projectsData?.data) {
+      setProjects(projectsData.data);
+      setLoadingProjects(false);
+    }
+  }, [projectsData]);
+
+  // Filter assignees based on task type (from form or task data)
+  useEffect(() => {
+    if (usersList) {
+      // Use taskType from form, or fallback to task.task_type if form hasn't been populated yet
+      const currentTaskType = taskType || task?.task_type;
+      
+      if (currentTaskType) {
+        // Filter users based on selected task type
+        const roleMap: Record<string, string> = {
+          'Designer': 'designer',
+          'Developer': 'developer',
+          'Marketing': 'marketing',
+        };
+        
+        const targetRole = roleMap[currentTaskType];
+        if (targetRole) {
+          const filteredUsers = usersList.filter((u) => {
+            if (!u.roles || u.roles.length === 0) return false;
+            return u.roles.some((role) => role.name.toLowerCase() === targetRole);
+          });
+          setAssignableUsers(filteredUsers);
+        } else {
+          setAssignableUsers([]);
+        }
+      } else {
+        // No task type selected, show no users
+        setAssignableUsers([]);
+      }
+      setLoadingUsers(false);
+    }
+  }, [usersList, taskType, task?.task_type]);
+
+  const canUpdate = hasPermission('tasks:update');
+  const canSetDueDate = hasPermission('tasks:update') || hasPermission('projects:update'); // Project Manager/Admin
+  const isAssignee = task?.assignees?.some((a) => a.user_id === user?.id) || false;
+  const canEdit = canUpdate || isAssignee; // Task assignees can also edit
+  const canSetInputFile = canUpdate; // PM/Admin only
+  const canSetOutputFile = isAssignee || canUpdate; // Assignees or PM/Admin
+
   // Populate form when task data loads
   useEffect(() => {
-    if (task && !isLoadingTask) {
-      // Helper function to format date for input field
-      const formatDateForInput = (date: string | Date | null | undefined): string => {
-        if (!date) return '';
-        try {
-          const dateObj = typeof date === 'string' ? new Date(date) : date;
-          if (isNaN(dateObj.getTime())) return '';
-          return dateObj.toISOString().split('T')[0];
-        } catch {
-          return '';
-        }
-      };
+    if (!task || isLoadingTask) return;
+  
+    // Helper function to format date for input field
+    const formatDateForInput = (date: string | Date | null | undefined): string => {
+      if (!date) return '';
+      try {
+        const dateObj = typeof date === 'string' ? new Date(date) : date;
+        if (isNaN(dateObj.getTime())) return '';
+        return dateObj.toISOString().split('T')[0];
+      } catch {
+        return '';
+      }
+    };
 
-      console.log('Resetting form with task data:', task);
-      
-      const formData = {
-        project_id: task.project_id || '',
-        title: task.title || '',
-        task_type: task.task_type || '',
-        description: task.description || null,
-        priority: (task.priority || 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH',
-        status: (task.status || 'TODO') as 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE',
-        started_date: formatDateForInput(task.started_date),
-        due_date: formatDateForInput(task.due_date),
-        input_file_url: task.input_file_url || null,
-        output_file_url: task.output_file_url || null,
-        is_active: task.is_active ?? true,
-        assignee_ids: task.assignees?.map((a) => a.user_id).filter(Boolean) || [],
-      };
-      
-      console.log('Form data to reset:', formData);
-      
-      reset(formData, {
-        keepDefaultValues: false
-      });
-    }
+    const formData: UpdateTaskFormData = {
+      project_id: task.project_id || '',
+      title: task.title || '',
+      task_type: task.task_type || '',
+      description: task.description || '',
+      priority: (task.priority || 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH',
+      status: (task.status || 'TODO') as 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE',
+      started_date: formatDateForInput(task.started_date),
+      due_date: formatDateForInput(task.due_date),
+      input_file_url: task.input_file_url || '',
+      output_file_url: task.output_file_url || '',
+      is_active: task.is_active ?? true,
+      assignee_ids: task.assignees?.map(a => a.user_id).filter(Boolean) || [],
+    };
+
+    console.log('Resetting form with task data:', task);
+    console.log('Form data to reset:', formData);
+  
+    reset(formData);
   }, [task, isLoadingTask, reset]);
 
   if (!canEdit) {
@@ -314,7 +329,7 @@ export default function EditTaskPage({
     const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     return name || user.username;
   };
-
+console.log(task,'----task')
   return (
     <div className="space-y-6">
       {/* Back Button */}
@@ -338,6 +353,7 @@ export default function EditTaskPage({
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
+            
             {/* Project Selection - Only Project Manager/Admin can change */}
             {canUpdate && (
               <div className="space-y-2">
@@ -347,9 +363,9 @@ export default function EditTaskPage({
                   control={control}
                   render={({ field }) => (
                     <Select
-                      value={field.value}
+                      value={field.value || task.project_id}
                       onValueChange={field.onChange}
-                      disabled={isPending || loadingProjects}
+                      disabled={isPending || isLoadingTask || loadingProjects}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a project" />
@@ -376,7 +392,7 @@ export default function EditTaskPage({
               <Input
                 id="title"
                 {...register('title')}
-                disabled={isPending}
+                disabled={isPending || isLoadingTask}
                 placeholder="Enter task title"
               />
               {errors.title && (
@@ -390,24 +406,27 @@ export default function EditTaskPage({
               <Controller
                 name="task_type"
                 control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={isPending}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select task type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TASK_TYPES.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const value = field.value || '';
+                  return (
+                    <Select
+                      value={value}
+                      onValueChange={field.onChange}
+                      disabled={isPending || isLoadingTask}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select task type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_TYPES.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  );
+                }}
               />
               {errors.task_type && (
                 <p className="text-sm text-destructive">{errors.task_type.message}</p>
@@ -420,7 +439,7 @@ export default function EditTaskPage({
               <Textarea
                 id="description"
                 {...register('description')}
-                disabled={isPending}
+                disabled={isPending || isLoadingTask}
                 placeholder="Describe the task..."
                 rows={4}
               />
@@ -436,24 +455,27 @@ export default function EditTaskPage({
                 <Controller
                   name="priority"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      disabled={isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRIORITIES.map((priority) => (
-                          <SelectItem key={priority} value={priority}>
-                            {priority}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  render={({ field }) => {
+                    const value = field.value || 'MEDIUM';
+                    return (
+                      <Select
+                        value={value}
+                        onValueChange={field.onChange}
+                        disabled={isPending || isLoadingTask}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRIORITIES.map((priority) => (
+                            <SelectItem key={priority} value={priority}>
+                              {priority}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  }}
                 />
                 {errors.priority && (
                   <p className="text-sm text-destructive">{errors.priority.message}</p>
@@ -465,24 +487,27 @@ export default function EditTaskPage({
                 <Controller
                   name="status"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      disabled={isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STATUSES.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status.replace('_', ' ')}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  render={({ field }) => {
+                    const value = field.value || 'TODO';
+                    return (
+                      <Select
+                        value={value}
+                        onValueChange={field.onChange}
+                        disabled={isPending || isLoadingTask}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.replace('_', ' ')}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  }}
                 />
                 {errors.status && (
                   <p className="text-sm text-destructive">{errors.status.message}</p>
@@ -513,7 +538,7 @@ export default function EditTaskPage({
                   id="due_date"
                   type="date"
                   {...register('due_date')}
-                  disabled={isPending || !canSetDueDate}
+                  disabled={isPending || isLoadingTask || !canSetDueDate}
                 />
                 {errors.due_date && (
                   <p className="text-sm text-destructive">{errors.due_date.message}</p>
@@ -532,7 +557,7 @@ export default function EditTaskPage({
                     id="input_file_url"
                     type="url"
                     {...register('input_file_url')}
-                    disabled={isPending}
+                    disabled={isPending || isLoadingTask}
                     placeholder="https://example.com/files/design.psd"
                   />
                   {errors.input_file_url && (
@@ -549,7 +574,7 @@ export default function EditTaskPage({
                   id="output_file_url"
                   type="url"
                   {...register('output_file_url')}
-                  disabled={isPending || !canSetOutputFile}
+                  disabled={isPending || isLoadingTask || !canSetOutputFile}
                   placeholder="https://example.com/files/final-design.psd"
                 />
                 {errors.output_file_url && (
@@ -561,64 +586,47 @@ export default function EditTaskPage({
               </div>
             </div>
 
-            {/* Task Assignees - Only Project Manager/Admin can change */}
+            {/* Task Assignee - Single selection based on task type - Only Project Manager/Admin can change */}
             {canUpdate && (
               <div className="space-y-2">
-                <Label>Task Assignees (Designer/Developer/Marketing)</Label>
+                <Label>Task Assignee {taskType ? `(${taskType})` : '(Select task type first)'}</Label>
                 <Controller
                   name="assignee_ids"
                   control={control}
                   render={({ field }) => {
-                    const selectedIds = field.value || [];
+                    // For single select, we'll store as array with one item (to match API structure)
+                    const selectedId = field.value && field.value.length > 0 ? field.value[0] : '';
+                    
                     return (
                       <div className="space-y-2">
-                        <Select
-                          value=""
-                          onValueChange={(value) => {
-                            if (value && !selectedIds.includes(value)) {
-                              field.onChange([...selectedIds, value]);
-                            }
-                          }}
-                          disabled={isPending || loadingUsers}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Add assignee..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {assignableUsers
-                              .filter((user) => !selectedIds.includes(user.id))
-                              .map((user) => (
+                        {!taskType ? (
+                          <p className="text-sm text-muted-foreground">
+                            Please select a task type first to see available assignees.
+                          </p>
+                        ) : assignableUsers.length > 0 ? (
+                          <Select
+                            value={selectedId}
+                            onValueChange={(value) => {
+                              // Store as array with single item to match API structure
+                              field.onChange(value ? [value] : []);
+                            }}
+                            disabled={isPending || loadingUsers}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={`Select ${taskType} assignee...`} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {assignableUsers.map((user) => (
                                 <SelectItem key={user.id} value={user.id}>
                                   {getUserDisplayName(user)} ({user.roles?.[0]?.name || 'No role'})
                                 </SelectItem>
                               ))}
-                          </SelectContent>
-                        </Select>
-                        {selectedIds.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selectedIds.map((userId) => {
-                              const user = assignableUsers.find((u) => u.id === userId);
-                              if (!user) return null;
-                              return (
-                                <Badge
-                                  key={userId}
-                                  variant="secondary"
-                                  className="flex items-center gap-1"
-                                >
-                                  {getUserDisplayName(user)}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      field.onChange(selectedIds.filter((id) => id !== userId));
-                                    }}
-                                    className="ml-1 hover:text-destructive"
-                                  >
-                                    ×
-                                  </button>
-                                </Badge>
-                              );
-                            })}
-                          </div>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No {taskType} users available for assignment.
+                          </p>
                         )}
                       </div>
                     );
@@ -638,7 +646,7 @@ export default function EditTaskPage({
                     id="is_active"
                     type="checkbox"
                     {...register('is_active')}
-                    disabled={isPending}
+                    disabled={isPending || isLoadingTask}
                     className="h-4 w-4"
                   />
                   Active
