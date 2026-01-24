@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useTask, useUpdateTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
-import { useUsers } from '@/hooks/useUsers';
+import { useUsersList } from '@/hooks/useUsers';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -46,8 +46,20 @@ const updateTaskSchema = z.object({
   status: z.enum(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE']).optional(),
   started_date: z.string().optional().nullable(),
   due_date: z.string().optional().nullable(),
-  input_file_url: z.string().url('Invalid URL format').max(500, 'URL must not exceed 500 characters').optional().nullable(),
-  output_file_url: z.string().url('Invalid URL format').max(500, 'URL must not exceed 500 characters').optional().nullable(),
+  input_file_url: z
+    .union([z.string().max(500, 'URL must not exceed 500 characters'), z.literal('')])
+    .refine((val) => !val || val === '' || /^https?:\/\/.+/.test(val), {
+      message: 'Invalid URL format',
+    })
+    .optional()
+    .nullable(),
+  output_file_url: z
+    .union([z.string().max(500, 'URL must not exceed 500 characters'), z.literal('')])
+    .refine((val) => !val || val === '' || /^https?:\/\/.+/.test(val), {
+      message: 'Invalid URL format',
+    })
+    .optional()
+    .nullable(),
   is_active: z.boolean().optional(),
   assignee_ids: z.array(z.string().uuid('Invalid assignee ID')).optional(),
 }).refine(
@@ -76,7 +88,18 @@ export default function EditTaskPage({
   params: { id: string };
 }) {
   const router = useRouter();
-  const { data: task, isLoading: isLoadingTask } = useTask(params.id);
+  const taskId = params?.id || '';
+  const { data: task, isLoading: isLoadingTask, error: taskError } = useTask(taskId);
+  
+  // Debug: Log task ID and loading state
+  useEffect(() => {
+    if (taskId) {
+      console.log('Task ID:', taskId);
+      console.log('Loading:', isLoadingTask);
+      console.log('Task data:', task);
+      console.log('Task error:', taskError);
+    }
+  }, [taskId, isLoadingTask, task, taskError]);
   const { mutate: updateTask, isPending } = useUpdateTask();
   const { hasPermission } = usePermissions();
   const { user } = useAuth();
@@ -88,8 +111,8 @@ export default function EditTaskPage({
   // Fetch projects
   const { data: projectsData } = useProjects({ limit: 1000, is_active: true });
 
-  // Fetch users with Designer/Developer/Marketing roles
-  const { data: usersData } = useUsers({ limit: 1000, is_active: true });
+  // Fetch users with Designer/Developer/Marketing roles using the list endpoint (no permission required)
+  const { data: usersList } = useUsersList({ is_active: true });
 
   useEffect(() => {
     if (projectsData?.data) {
@@ -99,9 +122,9 @@ export default function EditTaskPage({
   }, [projectsData]);
 
   useEffect(() => {
-    if (usersData?.data) {
+    if (usersList) {
       // Filter users by role: Designer, Developer, Marketing
-      const filteredUsers = usersData.data.filter((u) => {
+      const filteredUsers = usersList.filter((u) => {
         if (!u.roles || u.roles.length === 0) return false;
         return u.roles.some(
           (role) =>
@@ -113,7 +136,7 @@ export default function EditTaskPage({
       setAssignableUsers(filteredUsers);
       setLoadingUsers(false);
     }
-  }, [usersData]);
+  }, [usersList]);
 
   const canUpdate = hasPermission('tasks:update');
   const canSetDueDate = hasPermission('tasks:update') || hasPermission('projects:update'); // Project Manager/Admin
@@ -130,27 +153,61 @@ export default function EditTaskPage({
     formState: { errors },
   } = useForm<UpdateTaskFormData>({
     resolver: zodResolver(updateTaskSchema),
+    defaultValues: {
+      project_id: '',
+      title: '',
+      task_type: '',
+      description: '',
+      priority: 'MEDIUM',
+      status: 'TODO',
+      started_date: '',
+      due_date: '',
+      input_file_url: '',
+      output_file_url: '',
+      is_active: true,
+      assignee_ids: [],
+    },
   });
 
   // Populate form when task data loads
   useEffect(() => {
-    if (task) {
-      reset({
-        project_id: task.project_id,
-        title: task.title,
-        task_type: task.task_type,
-        description: task.description || '',
-        priority: task.priority,
-        status: task.status,
-        started_date: task.started_date ? new Date(task.started_date).toISOString().split('T')[0] : '',
-        due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '',
-        input_file_url: task.input_file_url || '',
-        output_file_url: task.output_file_url || '',
-        is_active: task.is_active,
-        assignee_ids: task.assignees?.map((a) => a.user_id) || [],
+    if (task && !isLoadingTask) {
+      // Helper function to format date for input field
+      const formatDateForInput = (date: string | Date | null | undefined): string => {
+        if (!date) return '';
+        try {
+          const dateObj = typeof date === 'string' ? new Date(date) : date;
+          if (isNaN(dateObj.getTime())) return '';
+          return dateObj.toISOString().split('T')[0];
+        } catch {
+          return '';
+        }
+      };
+
+      console.log('Resetting form with task data:', task);
+      
+      const formData = {
+        project_id: task.project_id || '',
+        title: task.title || '',
+        task_type: task.task_type || '',
+        description: task.description || null,
+        priority: (task.priority || 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH',
+        status: (task.status || 'TODO') as 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE',
+        started_date: formatDateForInput(task.started_date),
+        due_date: formatDateForInput(task.due_date),
+        input_file_url: task.input_file_url || null,
+        output_file_url: task.output_file_url || null,
+        is_active: task.is_active ?? true,
+        assignee_ids: task.assignees?.map((a) => a.user_id).filter(Boolean) || [],
+      };
+      
+      console.log('Form data to reset:', formData);
+      
+      reset(formData, {
+        keepDefaultValues: false
       });
     }
-  }, [task, reset]);
+  }, [task, isLoadingTask, reset]);
 
   if (!canEdit) {
     return (
@@ -172,6 +229,24 @@ export default function EditTaskPage({
     return (
       <div className="flex justify-center items-center py-12">
         <LoadingSpinner size="lg" text="Loading task..." />
+      </div>
+    );
+  }
+
+  if (taskError) {
+    return (
+      <div className="space-y-6">
+        <Link href="/tasks">
+          <Button variant="ghost" size="sm" className="mb-2">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Tasks
+          </Button>
+        </Link>
+        <div className="text-center py-12">
+          <p className="text-destructive">
+            {taskError instanceof Error ? taskError.message : 'Failed to load task'}
+          </p>
+        </div>
       </div>
     );
   }
@@ -226,7 +301,7 @@ export default function EditTaskPage({
     }
 
     updateTask(
-      { id: params.id, data: submitData },
+      { id: taskId, data: submitData },
       {
         onSuccess: () => {
           router.push('/tasks');

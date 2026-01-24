@@ -4,6 +4,19 @@ import type { User, CreateUserRequest, UpdateUserRequest, GetUsersQuery } from '
 import { toast } from 'sonner';
 
 /**
+ * Get users list for selection/dropdown purposes (simplified data)
+ * This endpoint requires only authentication (no specific permission)
+ * Use this for user selection in forms, assignee selection, project manager selection, etc.
+ */
+export const useUsersList = (filters: { role_id?: string; is_active?: boolean; limit?: number } = {}) => {
+  return useQuery({
+    queryKey: ['users-list', filters],
+    queryFn: () => userService.getList(filters),
+    staleTime: 60 * 1000, // 1 minute
+  });
+};
+
+/**
  * Get all users with query parameters
  */
 export const useUsers = (query: GetUsersQuery = {}) => {

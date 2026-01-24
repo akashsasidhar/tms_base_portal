@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useCreateTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
-import { useUsers } from '@/hooks/useUsers';
+import { useUsersList } from '@/hooks/useUsers';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -45,8 +45,20 @@ const createTaskSchema = z.object({
   status: z.enum(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE']).optional().default('TODO'),
   started_date: z.string().optional().nullable(),
   due_date: z.string().optional().nullable(),
-  input_file_url: z.string().url('Invalid URL format').max(500, 'URL must not exceed 500 characters').optional().nullable(),
-  output_file_url: z.string().url('Invalid URL format').max(500, 'URL must not exceed 500 characters').optional().nullable(),
+  input_file_url: z
+    .union([z.string().max(500, 'URL must not exceed 500 characters'), z.literal('')])
+    .refine((val) => !val || val === '' || /^https?:\/\/.+/.test(val), {
+      message: 'Invalid URL format',
+    })
+    .optional()
+    .nullable(),
+  output_file_url: z
+    .union([z.string().max(500, 'URL must not exceed 500 characters'), z.literal('')])
+    .refine((val) => !val || val === '' || /^https?:\/\/.+/.test(val), {
+      message: 'Invalid URL format',
+    })
+    .optional()
+    .nullable(),
   assignee_ids: z.array(z.string().uuid('Invalid assignee ID')).optional(),
 }).refine(
   (data) => {
@@ -84,8 +96,8 @@ export default function NewTaskPage() {
   // Fetch projects
   const { data: projectsData } = useProjects({ limit: 1000, is_active: true });
 
-  // Fetch users with Designer/Developer/Marketing roles
-  const { data: usersData } = useUsers({ limit: 1000, is_active: true });
+  // Fetch users with Designer/Developer/Marketing roles using the list endpoint (no permission required)
+  const { data: usersList } = useUsersList({ is_active: true });
 
   useEffect(() => {
     if (projectsData?.data) {
@@ -95,9 +107,9 @@ export default function NewTaskPage() {
   }, [projectsData]);
 
   useEffect(() => {
-    if (usersData?.data) {
+    if (usersList) {
       // Filter users by role: Designer, Developer, Marketing
-      const filteredUsers = usersData.data.filter((u) => {
+      const filteredUsers = usersList.filter((u) => {
         if (!u.roles || u.roles.length === 0) return false;
         return u.roles.some(
           (role) =>
@@ -109,7 +121,7 @@ export default function NewTaskPage() {
       setAssignableUsers(filteredUsers);
       setLoadingUsers(false);
     }
-  }, [usersData]);
+  }, [usersList]);
 
   if (!canCreate) {
     return (

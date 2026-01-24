@@ -196,19 +196,19 @@ export default function TasksPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <Link href={`/tasks/${task.id}`}>
-                              <DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/tasks/${task.id}`} className="flex items-center">
                                 <Eye className="mr-2 h-4 w-4" />
                                 View
-                              </DropdownMenuItem>
-                            </Link>
+                              </Link>
+                            </DropdownMenuItem>
                             {canUpdate && (
-                              <Link href={`/tasks/${task.id}/edit`}>
-                                <DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/tasks/${task.id}/edit`} className="flex items-center">
                                   <Pencil className="mr-2 h-4 w-4" />
                                   Edit
-                                </DropdownMenuItem>
-                              </Link>
+                                </Link>
+                              </DropdownMenuItem>
                             )}
                             {canDelete && (
                               <DropdownMenuItem

@@ -17,6 +17,7 @@ class AuthService {
   async login(credentials: LoginRequest): Promise<User> {
     const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
     const user = response.data.data.user;
+    const permissions = response.data.data.permissions || [];
     
     // Transform contacts to match expected format
     if (user.contacts) {
@@ -26,6 +27,12 @@ class AuthService {
         contact_type_id: contact.contact_type_id || contact.contactType?.id || '',
       }));
     }
+    
+    // Store permissions in user object for easy access
+    (user as any).permissions = permissions;
+    
+    // Debug: Log permissions received from login
+    console.log('[AuthService] Login - Permissions received:', permissions);
     
     return user;
   }

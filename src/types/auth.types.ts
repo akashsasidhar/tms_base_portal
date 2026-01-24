@@ -57,6 +57,7 @@ export interface AuthResponse {
   message?: string;
   data: {
     user: User;
+    permissions?: string[];
   };
 }
 

@@ -5,8 +5,8 @@ import appConfig from '@/config/app.config';
 
 export default function Footer() {
   return (
-    <footer className="border-t bg-muted/30">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-2.5 text-xs text-muted-foreground">
+    <footer className="border-t bg-muted/30 shrink-0">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-2.5 text-xs text-muted-foreground min-h-[3.5rem] sm:min-h-[2.5rem]">
         <div className="flex items-center gap-3">
           <Link 
             href="/privacy" 

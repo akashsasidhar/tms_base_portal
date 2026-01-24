@@ -7,7 +7,15 @@ export const usePermissions = () => {
    * Check if user has a specific permission
    */
   const hasPermission = (permission: string): boolean => {
-    return permissions.includes(permission);
+    const hasAccess = permissions.includes(permission);
+    // Debug logging (remove in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[usePermissions] Checking "${permission}":`, {
+        hasAccess,
+        allPermissions: permissions,
+      });
+    }
+    return hasAccess;
   };
 
   /**

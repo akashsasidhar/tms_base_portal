@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useCreateProject } from '@/hooks/useProjects';
-import { useUsers } from '@/hooks/useUsers';
+import { useUsersList } from '@/hooks/useUsers';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,13 +64,13 @@ export default function NewProjectPage() {
 
   const canCreate = hasPermission('projects:create');
 
-  // Fetch users with Project Manager role
-  const { data: usersData } = useUsers({ limit: 1000, is_active: true });
+  // Fetch users with Project Manager role using the list endpoint (no permission required)
+  const { data: usersList } = useUsersList({ is_active: true });
 
   useEffect(() => {
-    if (usersData?.data) {
+    if (usersList) {
       // Filter users by Project Manager role
-      const filteredUsers = usersData.data.filter((u) => {
+      const filteredUsers = usersList.filter((u) => {
         if (!u.roles || u.roles.length === 0) return false;
         return u.roles.some(
           (role) => role.name.toLowerCase() === 'project manager'
@@ -79,7 +79,7 @@ export default function NewProjectPage() {
       setProjectManagers(filteredUsers);
       setLoadingManagers(false);
     }
-  }, [usersData]);
+  }, [usersList]);
 
   if (!canCreate) {
     return (

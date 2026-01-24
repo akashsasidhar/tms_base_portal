@@ -50,15 +50,25 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
         try {
           const user = await authService.login({ contact, password, contact_type: contactType });
           
-          // Fetch permissions after successful login
-          let permissions: string[] = [];
-          try {
-            permissions = await authService.getPermissions();
-          } catch (permError) {
-            console.warn('Failed to fetch permissions:', permError);
-            // Continue without permissions - they can be fetched later
+          // Get permissions from user object (set by authService) or fetch separately
+          let permissions: string[] = (user as any).permissions || [];
+          
+          // Debug: Log permissions from login
+          console.log('[AuthStore] Login - Permissions from user object:', permissions);
+          
+          // If permissions weren't included in login response, fetch them
+          if (permissions.length === 0) {
+            console.log('[AuthStore] Login - No permissions in response, fetching separately...');
+            try {
+              permissions = await authService.getPermissions();
+              console.log('[AuthStore] Login - Fetched permissions:', permissions);
+            } catch (permError) {
+              console.warn('[AuthStore] Login - Failed to fetch permissions:', permError);
+              // Continue without permissions - they can be fetched later via checkAuth
+            }
           }
           
+          console.log('[AuthStore] Login - Final permissions to store:', permissions);
           set({ user, permissions, isAuthenticated: true, isLoading: false });
           toast.success('Login successful');
         } catch (error) {
@@ -109,9 +119,10 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
           // If cookies are invalid/missing, API will return 401
           const result = await authService.getCurrentUser();
           // getCurrentUser returns { user, permissions }
+          console.log('[AuthStore] checkAuth - Permissions received:', result.permissions);
           set({ 
             user: result.user, 
-            permissions: result.permissions, 
+            permissions: result.permissions || [], 
             isAuthenticated: true, 
             isLoading: false 
           });

@@ -116,7 +116,7 @@ export default function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed lg:static inset-y-0 left-0 z-50 bg-card border-r flex flex-col transition-all duration-200',
+          'fixed lg:static inset-y-0 left-0 z-50 bg-card border-r flex flex-col h-full transition-all duration-200',
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
           isCollapsed ? 'w-16' : 'w-64'
         )}
@@ -152,7 +152,7 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
           <TooltipProvider delayDuration={0}>
             {visibleNavItems.map((item) => {
               const Icon = item.icon;
@@ -189,28 +189,47 @@ export default function Sidebar() {
           </TooltipProvider>
         </nav>
 
-        {/* User Section */}
-        <div className="p-2 border-t space-y-2">
+        {/* User Section - Fixed at bottom */}
+        <div className="p-2 border-t space-y-2 shrink-0">
           {isCollapsed ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex justify-center">
-                    <Avatar className="cursor-pointer">
-                      <AvatarFallback>{initials}</AvatarFallback>
-                    </Avatar>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <div>
-                    <p className="font-medium">{displayName}</p>
-                    {primaryContact && (
-                      <p className="text-xs text-muted-foreground">{primaryContact.contact}</p>
-                    )}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex justify-center">
+                      <Avatar className="cursor-pointer">
+                        <AvatarFallback>{initials}</AvatarFallback>
+                      </Avatar>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <div>
+                      <p className="font-medium">{displayName}</p>
+                      {primaryContact && (
+                        <p className="text-xs text-muted-foreground">{primaryContact.contact}</p>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-full"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Logout</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </>
           ) : (
             <>
               <div className="flex items-center gap-3 px-2">
@@ -228,42 +247,22 @@ export default function Sidebar() {
               </div>
 
               {/* Role */}
-              {user.roles.length > 0 && !isCollapsed && (
+              {user.roles.length > 0 && (
                 <div className="px-2">
                   <RoleBadge role={user.roles[0]} />
                 </div>
               )}
-            </>
-          )}
 
-          {/* Logout Button */}
-          {isCollapsed ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="w-full"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>Logout</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleLogout}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
+              {/* Logout Button */}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleLogout}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
+            </>
           )}
         </div>
       </aside>

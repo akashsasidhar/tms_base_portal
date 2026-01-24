@@ -13,6 +13,22 @@ import type { ApiResponse, PaginatedResponse } from '@/types/common.types';
 
 class UserService {
   /**
+   * Get users list for selection/dropdown purposes (simplified data)
+   * This endpoint requires only authentication (no specific permission)
+   * Returns only essential fields: id, username, first_name, last_name, roles, is_active
+   */
+  async getList(filters: { role_id?: string; is_active?: boolean; limit?: number } = {}): Promise<User[]> {
+    const params = new URLSearchParams();
+    
+    if (filters.role_id) params.append('role_id', filters.role_id);
+    if (filters.is_active !== undefined) params.append('is_active', filters.is_active.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+
+    const response = await apiClient.get<ApiResponse<{ users: User[] }>>(`/users/list?${params.toString()}`);
+    return response.data.data.users;
+  }
+
+  /**
    * Get all users with pagination, filtering, and sorting
    */
   async getAll(query: GetUsersQuery = {}): Promise<PaginatedResponse<User>> {

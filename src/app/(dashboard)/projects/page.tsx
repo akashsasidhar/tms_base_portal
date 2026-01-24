@@ -177,19 +177,19 @@ export default function ProjectsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <Link href={`/projects/${project.id}`}>
-                              <DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/projects/${project.id}`} className="flex items-center">
                                 <Eye className="mr-2 h-4 w-4" />
                                 View
-                              </DropdownMenuItem>
-                            </Link>
+                              </Link>
+                            </DropdownMenuItem>
                             {canUpdate && (
-                              <Link href={`/projects/${project.id}/edit`}>
-                                <DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/projects/${project.id}/edit`} className="flex items-center">
                                   <Pencil className="mr-2 h-4 w-4" />
                                   Edit
-                                </DropdownMenuItem>
-                              </Link>
+                                </Link>
+                              </DropdownMenuItem>
                             )}
                             {canDelete && (
                               <DropdownMenuItem
