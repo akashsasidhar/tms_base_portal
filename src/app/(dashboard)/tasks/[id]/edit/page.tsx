@@ -361,24 +361,28 @@ console.log(task,'----task')
                 <Controller
                   name="project_id"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value || task.project_id}
-                      onValueChange={field.onChange}
-                      disabled={isPending || isLoadingTask || loadingProjects}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  render={({ field }) => {
+                    // Use field.value if available, otherwise fallback to task data
+                    const value = field.value || task?.project_id || '';
+                    return (
+                      <Select
+                        value={value}
+                        onValueChange={field.onChange}
+                        disabled={isPending || isLoadingTask || loadingProjects}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  }}
                 />
                 {errors.project_id && (
                   <p className="text-sm text-destructive">{errors.project_id.message}</p>
@@ -407,7 +411,10 @@ console.log(task,'----task')
                 name="task_type"
                 control={control}
                 render={({ field }) => {
-                  const value = field.value || '';
+                  // Use field.value if it's set (even if empty string), otherwise fallback to task data
+                  const value = field.value !== undefined && field.value !== null 
+                    ? field.value 
+                    : (task?.task_type || '');
                   return (
                     <Select
                       value={value}
@@ -456,7 +463,10 @@ console.log(task,'----task')
                   name="priority"
                   control={control}
                   render={({ field }) => {
-                    const value = field.value || 'MEDIUM';
+                    // Use field.value if it's set, otherwise fallback to task data or default
+                    const value = field.value !== undefined && field.value !== null 
+                      ? field.value 
+                      : (task?.priority || 'MEDIUM');
                     return (
                       <Select
                         value={value}
@@ -488,7 +498,10 @@ console.log(task,'----task')
                   name="status"
                   control={control}
                   render={({ field }) => {
-                    const value = field.value || 'TODO';
+                    // Use field.value if it's set, otherwise fallback to task data or default
+                    const value = field.value !== undefined && field.value !== null 
+                      ? field.value 
+                      : (task?.status || 'TODO');
                     return (
                       <Select
                         value={value}
