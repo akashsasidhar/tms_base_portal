@@ -85,6 +85,7 @@ export interface GetTasksQuery {
   is_active?: boolean;
   due_date_from?: string;
   due_date_to?: string;
+  list_type?: 'active' | 'pending' | 'completed';
   sort_field?: 'title' | 'created_at' | 'due_date' | 'priority' | 'status';
   sort_order?: 'ASC' | 'DESC';
 }

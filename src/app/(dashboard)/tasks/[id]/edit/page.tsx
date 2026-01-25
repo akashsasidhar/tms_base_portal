@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useTask, useUpdateTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useUsersList } from '@/hooks/useUsers';
+import { useTaskTypes } from '@/hooks/useRoles';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -78,9 +79,11 @@ const updateTaskSchema = z.object({
 
 type UpdateTaskFormData = z.infer<typeof updateTaskSchema>;
 
-const TASK_TYPES = ['Designer', 'Developer', 'Marketing'];
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH'] as const;
 const STATUSES = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'] as const;
+
+// Roles to exclude from task types
+const EXCLUDED_ROLES = ['Project Manager', 'Admin', 'Super Admin'];
 
 export default function EditTaskPage({
   params,
@@ -138,6 +141,12 @@ export default function EditTaskPage({
   // Fetch projects
   const { data: projectsData } = useProjects({ limit: 1000, is_active: true });
 
+  // Fetch task types (reusable endpoint - no roles:read permission required)
+  const { data: taskTypesData } = useTaskTypes();
+  
+  // Get task type names from the response
+  const taskTypes = taskTypesData?.map((role) => role.name) || [];
+
   // Fetch users with Designer/Developer/Marketing roles using the list endpoint (no permission required)
   const { data: usersList } = useUsersList({ is_active: true });
 
@@ -155,23 +164,12 @@ export default function EditTaskPage({
       const currentTaskType = taskType || task?.task_type;
       
       if (currentTaskType) {
-        // Filter users based on selected task type
-        const roleMap: Record<string, string> = {
-          'Designer': 'designer',
-          'Developer': 'developer',
-          'Marketing': 'marketing',
-        };
-        
-        const targetRole = roleMap[currentTaskType];
-        if (targetRole) {
-          const filteredUsers = usersList.filter((u) => {
-            if (!u.roles || u.roles.length === 0) return false;
-            return u.roles.some((role) => role.name.toLowerCase() === targetRole);
-          });
-          setAssignableUsers(filteredUsers);
-        } else {
-          setAssignableUsers([]);
-        }
+        // Filter users based on selected task type - match by role name (case-insensitive)
+        const filteredUsers = usersList.filter((u) => {
+          if (!u.roles || u.roles.length === 0) return false;
+          return u.roles.some((role) => role.name.toLowerCase() === currentTaskType.toLowerCase());
+        });
+        setAssignableUsers(filteredUsers);
       } else {
         // No task type selected, show no users
         setAssignableUsers([]);
@@ -412,9 +410,10 @@ console.log(task,'----task')
                 control={control}
                 render={({ field }) => {
                   // Use field.value if it's set (even if empty string), otherwise fallback to task data
-                  const value = field.value !== undefined && field.value !== null 
-                    ? field.value 
-                    : (task?.task_type || '');
+                  const value = field.value || task?.task_type || '';
+                  // const value = field.value !== undefined && field.value !== null 
+                  //   ? field.value 
+                  //   : (task?.task_type || '');
                   return (
                     <Select
                       value={value}
@@ -425,7 +424,7 @@ console.log(task,'----task')
                         <SelectValue placeholder="Select task type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {TASK_TYPES.map((type) => (
+                        {taskTypes.map((type) => (
                           <SelectItem key={type} value={type}>
                             {type}
                           </SelectItem>
@@ -602,17 +601,24 @@ console.log(task,'----task')
             {/* Task Assignee - Single selection based on task type - Only Project Manager/Admin can change */}
             {canUpdate && (
               <div className="space-y-2">
-                <Label>Task Assignee {taskType ? `(${taskType})` : '(Select task type first)'}</Label>
+                <Label>Task Assignee {(taskType || task?.task_type) ? `(${taskType || task?.task_type})` : '(Select task type first)'}</Label>
                 <Controller
                   name="assignee_ids"
                   control={control}
                   render={({ field }) => {
                     // For single select, we'll store as array with one item (to match API structure)
-                    const selectedId = field.value && field.value.length > 0 ? field.value[0] : '';
+                    // Use field.value if it's set, otherwise fallback to task assignees
+                    const fieldValue = field.value !== undefined && field.value !== null ? field.value : [];
+                    const taskAssigneeIds = task?.assignees?.map(a => a.user_id).filter(Boolean) || [];
+                    const assigneeArray = fieldValue.length > 0 ? fieldValue : taskAssigneeIds;
+                    const selectedId = assigneeArray.length > 0 ? assigneeArray[0] : '';
+                    
+                    // Use taskType from form or fallback to task data
+                    const currentTaskType = taskType || task?.task_type;
                     
                     return (
                       <div className="space-y-2">
-                        {!taskType ? (
+                        {!currentTaskType ? (
                           <p className="text-sm text-muted-foreground">
                             Please select a task type first to see available assignees.
                           </p>
@@ -623,10 +629,10 @@ console.log(task,'----task')
                               // Store as array with single item to match API structure
                               field.onChange(value ? [value] : []);
                             }}
-                            disabled={isPending || loadingUsers}
+                            disabled={isPending || isLoadingTask || loadingUsers}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder={`Select ${taskType} assignee...`} />
+                              <SelectValue placeholder={`Select ${currentTaskType} assignee...`} />
                             </SelectTrigger>
                             <SelectContent>
                               {assignableUsers.map((user) => (
@@ -638,7 +644,7 @@ console.log(task,'----task')
                           </Select>
                         ) : (
                           <p className="text-sm text-muted-foreground">
-                            No {taskType} users available for assignment.
+                            No {currentTaskType} users available for assignment.
                           </p>
                         )}
                       </div>

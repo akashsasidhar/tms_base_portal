@@ -7,6 +7,10 @@ export const roleService = {
     const response = await apiClient.get<PaginatedResponse<Role>>('/roles', { params });
     return response.data;
   },
+  getTaskTypes: async () => {
+    const response = await apiClient.get<{ success: boolean; data: Array<{ id: string; name: string }> }>('/roles/task-types');
+    return response.data.data;
+  },
   getById: async (id: string) => {
     const response = await apiClient.get(`/roles/${id}`);
     return response.data;

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useCreateTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useUsersList } from '@/hooks/useUsers';
+import { useTaskTypes } from '@/hooks/useRoles';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -42,9 +43,9 @@ const createTaskSchema = z.object({
   task_type: z.string().min(1, 'Task type is required'),
   description: z.string().max(5000, 'Description must not exceed 5000 characters').optional().nullable(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional().default('MEDIUM'),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE']).optional().default('TODO'),
-  started_date: z.string().optional().nullable(),
-  due_date: z.string().optional().nullable(),
+  status: z.enum(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE']).default('TODO'),
+  started_date: z.string().min(1, 'Start date is required'),
+  due_date: z.string().min(1, 'Due date is required'),
   input_file_url: z
     .union([z.string().max(500, 'URL must not exceed 500 characters'), z.literal('')])
     .refine((val) => !val || val === '' || /^https?:\/\/.+/.test(val), {
@@ -62,21 +63,17 @@ const createTaskSchema = z.object({
   assignee_ids: z.array(z.string().uuid('Invalid assignee ID')).optional(),
 }).refine(
   (data) => {
-    // If both dates are provided, due_date should be after started_date
-    if (data.started_date && data.due_date) {
-      return new Date(data.due_date) >= new Date(data.started_date);
-    }
-    return true;
+    // Due date must be after or equal to start date
+    return new Date(data.due_date) >= new Date(data.started_date);
   },
   {
-    message: 'Due date must be after start date',
+    message: 'Due date must be after or equal to start date',
     path: ['due_date'],
   }
 );
 
 type CreateTaskFormData = z.infer<typeof createTaskSchema>;
 
-const TASK_TYPES = ['Designer', 'Developer', 'Marketing'];
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH'] as const;
 const STATUSES = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'] as const;
 
@@ -93,11 +90,14 @@ export default function NewTaskPage() {
   const canCreate = hasPermission('tasks:create');
   const canSetDueDate = hasPermission('tasks:update') || hasPermission('projects:update'); // Project Manager/Admin
 
-  // Get task type from form
-  const taskType = useWatch({ control, name: 'task_type' });
-
   // Fetch projects
   const { data: projectsData } = useProjects({ limit: 1000, is_active: true });
+
+  // Fetch task types (reusable endpoint - no roles:read permission required)
+  const { data: taskTypesData } = useTaskTypes();
+  
+  // Get task type names from the response
+  const taskTypes = taskTypesData?.map((role) => role.name) || [];
 
   // Fetch users with Designer/Developer/Marketing roles using the list endpoint (no permission required)
   const { data: usersList } = useUsersList({ is_active: true });
@@ -108,33 +108,6 @@ export default function NewTaskPage() {
       setLoadingProjects(false);
     }
   }, [projectsData]);
-
-  useEffect(() => {
-    if (usersList && taskType) {
-      // Filter users based on selected task type
-      const roleMap: Record<string, string> = {
-        'Designer': 'designer',
-        'Developer': 'developer',
-        'Marketing': 'marketing',
-      };
-      
-      const targetRole = roleMap[taskType];
-      if (targetRole) {
-        const filteredUsers = usersList.filter((u) => {
-          if (!u.roles || u.roles.length === 0) return false;
-          return u.roles.some((role) => role.name.toLowerCase() === targetRole);
-        });
-        setAssignableUsers(filteredUsers);
-      } else {
-        setAssignableUsers([]);
-      }
-      setLoadingUsers(false);
-    } else if (usersList && !taskType) {
-      // No task type selected, show no users
-      setAssignableUsers([]);
-      setLoadingUsers(false);
-    }
-  }, [usersList, taskType]);
 
   if (!canCreate) {
     return (
@@ -159,6 +132,8 @@ export default function NewTaskPage() {
     formState: { errors },
   } = useForm<CreateTaskFormData>({
     resolver: zodResolver(createTaskSchema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
     defaultValues: {
       project_id: '',
       title: '',
@@ -174,6 +149,25 @@ export default function NewTaskPage() {
     },
   });
 
+  // Get task type from form - must be after useForm
+  const taskType = useWatch({ control, name: 'task_type' });
+
+  useEffect(() => {
+    if (usersList && taskType) {
+      // Filter users based on selected task type - match by role name (case-insensitive)
+      const filteredUsers = usersList.filter((u) => {
+        if (!u.roles || u.roles.length === 0) return false;
+        return u.roles.some((role) => role.name.toLowerCase() === taskType.toLowerCase());
+      });
+      setAssignableUsers(filteredUsers);
+      setLoadingUsers(false);
+    } else if (usersList && !taskType) {
+      // No task type selected, show no users
+      setAssignableUsers([]);
+      setLoadingUsers(false);
+    }
+  }, [usersList, taskType]);
+
   const onSubmit = async (data: CreateTaskFormData) => {
     const submitData = {
       project_id: data.project_id,
@@ -181,9 +175,9 @@ export default function NewTaskPage() {
       task_type: data.task_type,
       description: data.description || null,
       priority: data.priority,
-      status: data.status,
-      started_date: data.started_date || null,
-      due_date: canSetDueDate ? (data.due_date || null) : null,
+      status: 'TODO', // Always TODO for new tasks
+      started_date: data.started_date,
+      due_date: data.due_date,
       input_file_url: data.input_file_url || null, // Optional raw file URL
       output_file_url: null, // Assignees set this later
       assignee_ids: data.assignee_ids || [],
@@ -284,7 +278,7 @@ export default function NewTaskPage() {
                       <SelectValue placeholder="Select task type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {TASK_TYPES.map((type) => (
+                      {taskTypes.map((type) => (
                         <SelectItem key={type} value={type}>
                           {type}
                         </SelectItem>
@@ -353,7 +347,7 @@ export default function NewTaskPage() {
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}
-                      disabled={isPending}
+                      disabled={true}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
@@ -368,6 +362,7 @@ export default function NewTaskPage() {
                     </Select>
                   )}
                 />
+                <p className="text-xs text-muted-foreground">Status is set to TODO for new tasks</p>
                 {errors.status && (
                   <p className="text-sm text-destructive">{errors.status.message}</p>
                 )}
@@ -377,7 +372,9 @@ export default function NewTaskPage() {
             {/* Dates */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="started_date">Start Date</Label>
+                <Label htmlFor="started_date">
+                  Start Date <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="started_date"
                   type="date"
@@ -391,7 +388,7 @@ export default function NewTaskPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="due_date">
-                  Due Date {canSetDueDate ? '' : '(Project Manager/Admin only)'}
+                  Due Date <span className="text-destructive">*</span> {canSetDueDate ? '' : '(Project Manager/Admin only)'}
                 </Label>
                 <Input
                   id="due_date"

@@ -12,11 +12,51 @@ interface HeaderProps {
 const routeTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/projects': 'Projects',
-  '/tasks': 'Tasks',
+  '/tasks': 'Active Tasks',
+  '/tasks/pending': 'Pending Tasks',
+  '/tasks/completed': 'Completed Tasks',
+  '/tasks/new': 'New Task',
   '/users': 'Users',
   '/roles': 'Roles',
   '/contact-types': 'Contact Types',
   '/permissions': 'Permissions',
+};
+
+// Helper function to get title from pathname
+const getTitleFromPath = (pathname: string): string => {
+  // Check exact match first
+  if (routeTitles[pathname]) {
+    return routeTitles[pathname];
+  }
+  
+  // Check for nested routes (e.g., /tasks/[id]/edit)
+  if (pathname.startsWith('/tasks/') && pathname.includes('/edit')) {
+    return 'Edit Task';
+  }
+  if (pathname.startsWith('/tasks/') && !pathname.includes('/pending') && !pathname.includes('/completed') && !pathname.includes('/new')) {
+    return 'Task Details';
+  }
+  if (pathname.startsWith('/projects/') && pathname.includes('/edit')) {
+    return 'Edit Project';
+  }
+  if (pathname.startsWith('/projects/') && pathname.includes('/new')) {
+    return 'New Project';
+  }
+  if (pathname.startsWith('/projects/') && !pathname.includes('/edit') && !pathname.includes('/new')) {
+    return 'Project Details';
+  }
+  if (pathname.startsWith('/users/') && pathname.includes('/edit')) {
+    return 'Edit User';
+  }
+  if (pathname.startsWith('/users/') && pathname.includes('/new')) {
+    return 'New User';
+  }
+  if (pathname.startsWith('/users/') && !pathname.includes('/edit') && !pathname.includes('/new')) {
+    return 'User Details';
+  }
+  
+  // Default fallback
+  return 'Dashboard';
 };
 
 export default function Header({ onMenuClick }: HeaderProps) {
@@ -28,7 +68,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     if (typeof window !== 'undefined') {
       const currentPath = window.location.pathname;
       setPathname(currentPath);
-      setTitle(routeTitles[currentPath] || 'Dashboard');
+      setTitle(getTitleFromPath(currentPath));
     }
   }, []);
 
@@ -39,7 +79,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     const handlePopState = () => {
       const currentPath = window.location.pathname;
       setPathname(currentPath);
-      setTitle(routeTitles[currentPath] || 'Dashboard');
+      setTitle(getTitleFromPath(currentPath));
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -55,7 +95,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
       const currentPath = window.location.pathname;
       if (currentPath !== pathname) {
         setPathname(currentPath);
-        setTitle(routeTitles[currentPath] || 'Dashboard');
+        setTitle(getTitleFromPath(currentPath));
       }
     };
 
@@ -68,12 +108,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center gap-4 px-4 lg:px-6">
-        {/* Mobile menu button */}
+        {/* Mobile menu button - styled to match design */}
         {onMenuClick && (
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden bg-background border shadow-sm hover:bg-accent h-9 w-9"
             onClick={onMenuClick}
           >
             <Menu className="h-5 w-5" />

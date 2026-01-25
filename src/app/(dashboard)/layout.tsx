@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
@@ -14,6 +14,7 @@ export default function DashboardLayout({
 }) {
   const { isAuthenticated, isLoading, checkAuth } = useAuth();
   const hasCheckedAuth = useRef(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (hasCheckedAuth.current) return;
@@ -34,14 +35,14 @@ export default function DashboardLayout({
     <div className="h-screen flex overflow-hidden">
       {/* Sidebar: fixed height, own scroll */}
       <aside className="h-full overflow-y-auto shrink-0">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onOpenChange={setSidebarOpen} />
       </aside>
 
       {/* Right side */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {/* Header: fixed */}
         <header className="shrink-0">
-          {isAuthenticated && <Header />}
+          {isAuthenticated && <Header onMenuClick={() => setSidebarOpen(true)} />}
         </header>
 
         {/* MAIN: ONLY SCROLL AREA */}

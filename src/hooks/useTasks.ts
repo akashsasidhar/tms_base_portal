@@ -15,6 +15,28 @@ export const useTasks = (query: GetTasksQuery = {}) => {
 };
 
 /**
+ * Get pending tasks (overdue and not completed)
+ */
+export const usePendingTasks = (query: GetTasksQuery = {}) => {
+  return useQuery({
+    queryKey: ['tasks', 'pending', query],
+    queryFn: () => taskService.getPending(query),
+    staleTime: 30 * 1000, // 30 seconds
+  });
+};
+
+/**
+ * Get completed tasks
+ */
+export const useCompletedTasks = (query: GetTasksQuery = {}) => {
+  return useQuery({
+    queryKey: ['tasks', 'completed', query],
+    queryFn: () => taskService.getCompleted(query),
+    staleTime: 30 * 1000, // 30 seconds
+  });
+};
+
+/**
  * Get single task by ID
  */
 export const useTask = (id: string | null) => {

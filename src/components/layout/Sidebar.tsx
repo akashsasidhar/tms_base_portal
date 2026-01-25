@@ -19,8 +19,12 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   FolderKanban,
   CheckSquare,
+  Clock3,
+  CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -32,29 +36,61 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-interface NavItem {
+interface NavSubItem {
   href: string;
   label: string;
   icon: typeof Home;
+}
+
+interface NavItem {
+  href?: string;
+  label: string;
+  icon: typeof Home;
   permission?: string;
+  subItems?: NavSubItem[];
 }
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Home, permission: undefined },
   { href: '/projects', label: 'Projects', icon: FolderKanban, permission: 'projects:read' },
-  { href: '/tasks', label: 'Tasks', icon: CheckSquare, permission: 'tasks:read' },
+  {
+    label: 'Tasks',
+    icon: CheckSquare,
+    permission: 'tasks:read',
+    subItems: [
+      { href: '/tasks', label: 'Active', icon: CheckSquare },
+      { href: '/tasks/pending', label: 'Pending', icon: Clock3 },
+      { href: '/tasks/completed', label: 'Completed', icon: CheckCircle2 },
+    ],
+  },
   { href: '/users', label: 'Users', icon: Users, permission: 'users:read' },
   { href: '/roles', label: 'Roles', icon: Shield, permission: 'roles:read' },
   { href: '/contact-types', label: 'Contact Types', icon: Mail, permission: 'contact-types:read' },
   { href: '/permissions', label: 'Permissions', icon: Key, permission: 'permissions:read' },
 ];
 
-export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false);
+interface SidebarProps {
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export default function Sidebar({ isOpen: controlledIsOpen, onOpenChange }: SidebarProps = {}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const pathname = usePathname();
   const { user, permissions, logout } = useAuth();
   const router = useRouter();
+  
+  // Use controlled state if provided, otherwise use internal state
+  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+  const setIsOpen = (open: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(open);
+    } else {
+      setInternalIsOpen(open);
+    }
+  };
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -76,6 +112,77 @@ export default function Sidebar() {
     if (!item.permission) return true;
     return permissions.includes(item.permission);
   });
+
+  // Check if a menu item or its sub-items are active
+  const isItemActive = (item: NavItem): boolean => {
+    if (item.href) {
+      // For exact href matches, check exact pathname or paths that start with href but are not sub-routes
+      if (pathname === item.href) return true;
+      // For /tasks, we need to be careful - it should only be active if we're on /tasks exactly
+      // or on /tasks/new, /tasks/[id], etc., but NOT on /tasks/pending or /tasks/completed
+      if (item.href === '/tasks') {
+        return pathname === '/tasks' || 
+               (pathname.startsWith('/tasks/') && 
+                !pathname.startsWith('/tasks/pending') && 
+                !pathname.startsWith('/tasks/completed'));
+      }
+      return pathname.startsWith(`${item.href}/`);
+    }
+    if (item.subItems) {
+      return item.subItems.some((subItem) => isSubItemActive(subItem.href));
+    }
+    return false;
+  };
+
+  // Check if a sub-item is active - must match exactly or be a child route (but not sibling routes)
+  const isSubItemActive = (href: string): boolean => {
+    // Exact match
+    if (pathname === href) return true;
+    
+    // For /tasks, it should only match /tasks exactly or /tasks/new, /tasks/[id], etc.
+    // But NOT /tasks/pending or /tasks/completed
+    if (href === '/tasks') {
+      return pathname === '/tasks' || 
+             (pathname.startsWith('/tasks/') && 
+              !pathname.startsWith('/tasks/pending') && 
+              !pathname.startsWith('/tasks/completed'));
+    }
+    
+    // For /tasks/pending, match exactly or child routes like /tasks/pending/...
+    if (href === '/tasks/pending') {
+      return pathname === '/tasks/pending' || pathname.startsWith('/tasks/pending/');
+    }
+    
+    // For /tasks/completed, match exactly or child routes
+    if (href === '/tasks/completed') {
+      return pathname === '/tasks/completed' || pathname.startsWith('/tasks/completed/');
+    }
+    
+    // For other routes, match exactly or child routes
+    return pathname.startsWith(`${href}/`);
+  };
+
+  // Toggle sub-menu expansion
+  const toggleSubMenu = (label: string) => {
+    setExpandedMenus((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(label)) {
+        newSet.delete(label);
+      } else {
+        newSet.add(label);
+      }
+      return newSet;
+    });
+  };
+
+  // Auto-expand menu if any sub-item is active
+  useEffect(() => {
+    visibleNavItems.forEach((item) => {
+      if (item.subItems && isItemActive(item)) {
+        setExpandedMenus((prev) => new Set(prev).add(item.label));
+      }
+    });
+  }, [pathname]);
 
   const handleLogout = async () => {
     try {
@@ -156,8 +263,64 @@ export default function Sidebar() {
           <TooltipProvider delayDuration={0}>
             {visibleNavItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              const button = (
+              const isActive = isItemActive(item);
+              const hasSubItems = item.subItems && item.subItems.length > 0;
+              const isExpanded = expandedMenus.has(item.label);
+
+              // If item has sub-items, render as expandable menu
+              if (hasSubItems && !isCollapsed) {
+                return (
+                  <div key={item.label} className="space-y-1">
+                    <Button
+                      variant={isActive ? 'secondary' : 'ghost'}
+                      size="default"
+                      className={cn(
+                        'w-full justify-start',
+                        isActive && 'bg-accent'
+                      )}
+                      onClick={() => toggleSubMenu(item.label)}
+                    >
+                      <Icon className="h-4 w-4 mr-2" />
+                      {item.label}
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4 ml-auto" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 ml-auto" />
+                      )}
+                    </Button>
+                    {isExpanded && (
+                      <div className="ml-4 space-y-1">
+                        {item.subItems!.map((subItem) => {
+                          const SubIcon = subItem.icon;
+                          const isSubActive = isSubItemActive(subItem.href);
+                          return (
+                            <Link
+                              key={subItem.href}
+                              href={subItem.href}
+                              onClick={() => setIsOpen(false)}
+                            >
+                              <Button
+                                variant={isSubActive ? 'secondary' : 'ghost'}
+                                size="sm"
+                                className={cn(
+                                  'w-full justify-start text-sm',
+                                  isSubActive && 'bg-accent'
+                                )}
+                              >
+                                <SubIcon className="h-3 w-3 mr-2" />
+                                {subItem.label}
+                              </Button>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // Regular menu item or collapsed state
+              const button = item.href ? (
                 <Link key={item.href} href={item.href} onClick={() => setIsOpen(false)}>
                   <Button
                     variant={isActive ? 'secondary' : 'ghost'}
@@ -171,11 +334,25 @@ export default function Sidebar() {
                     {!isCollapsed && item.label}
                   </Button>
                 </Link>
+              ) : (
+                <Button
+                  key={item.label}
+                  variant={isActive ? 'secondary' : 'ghost'}
+                  size={isCollapsed ? 'icon' : 'default'}
+                  className={cn(
+                    isCollapsed ? 'w-full justify-center' : 'w-full justify-start',
+                    isActive && 'bg-accent'
+                  )}
+                  onClick={() => !isCollapsed && hasSubItems && toggleSubMenu(item.label)}
+                >
+                  <Icon className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+                  {!isCollapsed && item.label}
+                </Button>
               );
 
               if (isCollapsed) {
                 return (
-                  <Tooltip key={item.href}>
+                  <Tooltip key={item.label || item.href}>
                     <TooltipTrigger asChild>{button}</TooltipTrigger>
                     <TooltipContent side="right">
                       <p>{item.label}</p>
@@ -267,15 +444,6 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Mobile menu button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="lg:hidden fixed top-4 left-4 z-50"
-        onClick={() => setIsOpen(true)}
-      >
-        <Menu className="h-5 w-5" />
-      </Button>
     </>
   );
 }

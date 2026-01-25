@@ -12,6 +12,18 @@ export const useRoles = (params?: { name?: string; page?: number; limit?: number
   });
 };
 
+/**
+ * Get roles for task type selection (reusable hook)
+ * This endpoint doesn't require roles:read permission, only authentication
+ */
+export const useTaskTypes = () => {
+  return useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ['task-types'],
+    queryFn: () => roleService.getTaskTypes(),
+    staleTime: 5 * 60 * 1000, // 5 minutes - task types don't change often
+  });
+};
+
 export const useRole = (id: string | null) => {
   // UUID validation regex
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
