@@ -24,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDeleteTask } from '@/hooks/useTasks';
-import { formatDateDisplay, getPriorityVariant, getStatusVariant, formatTaskStatus } from '@/utils/task.util';
+import { getPriorityVariant, getStatusVariant, formatTaskStatus } from '@/utils/task.util';
+import { formatDateDisplay } from '@/utils/date.util';
 import { getAssigneeNames } from '@/utils/user.util';
 
 export default function PendingTasksPage() {

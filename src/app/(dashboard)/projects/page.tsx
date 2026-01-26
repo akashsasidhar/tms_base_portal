@@ -142,7 +142,7 @@ export default function ProjectsPage() {
               <TableBody>
                 {data.data.map((project) => {
                   const creatorName = project.created_by_user
-                    ? `${project.created_by_user.first_name || ''} ${project.created_by_user.last_name || ''}`.trim() || project.created_by_user.username
+                    ? getUserDisplayName(project.created_by_user)
                     : 'Unknown';
 
                   return (
@@ -153,16 +153,16 @@ export default function ProjectsPage() {
                       </TableCell>
                       <TableCell>
                         {project.project_manager ? (
-                          `${project.project_manager.first_name || ''} ${project.project_manager.last_name || ''}`.trim() || project.project_manager.username
+                          getUserDisplayName(project.project_manager)
                         ) : (
                           <span className="text-muted-foreground italic">Not assigned</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {project.start_date ? format(new Date(project.start_date), 'MMM dd, yyyy') : '-'}
+                        {formatDateDisplay(project.start_date)}
                       </TableCell>
                       <TableCell>
-                        {project.end_date ? format(new Date(project.end_date), 'MMM dd, yyyy') : '-'}
+                        {formatDateDisplay(project.end_date)}
                       </TableCell>
                       <TableCell>{creatorName}</TableCell>
                       <TableCell>

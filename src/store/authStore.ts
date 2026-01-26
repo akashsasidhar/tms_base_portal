@@ -100,13 +100,19 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
 
         // Try to call logout API (but don't wait for it or retry on failure)
         // This prevents infinite loops if the token is already invalid
-        authService.logout().catch((error) => {
+        // Silently catch any errors - logout should always succeed from user perspective
+        authService.logout().catch(() => {
           // Silently ignore logout API errors - we've already cleared state
           // This prevents infinite loops when token is invalid
-          console.warn('Backend logout failed:', error);
+          // No need to log or show errors - user is already logged out
         });
         
         toast.success('Logged out successfully');
+        
+        // Redirect to login page immediately to prevent any further API calls
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
       },
 
       // Check authentication status
@@ -138,9 +144,12 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
           if (typeof window !== 'undefined') {
             localStorage.removeItem('auth-storage');
             sessionStorage.clear();
+            // Redirect to login if not already there
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login';
+            }
           }
-          // Re-throw error to trigger redirect in layout
-          throw error;
+          // Don't re-throw error - we've already handled redirect
         }
       },
     }),

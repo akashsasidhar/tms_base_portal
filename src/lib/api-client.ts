@@ -109,13 +109,31 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     }
 
+    // For logout requests with 401, just reject silently without trying to refresh
+    // The logout handler will clear state anyway - no need to show errors
+    if (error.response?.status === 401 && isLogoutRequest) {
+      // Silently reject - logout already cleared state
+      return Promise.reject(error);
+    }
+
     // Handle 401 Unauthorized - Token expired or invalid
     // Skip retry mechanism for 401 as it has its own refresh token logic
+    // IMPORTANT: Skip refresh for logout requests (already handled above)
     if (error.response?.status === 401 && !originalRequest._retry && !isLogoutRequest && !isPublicAuthEndpoint) {
       originalRequest._retry = true;
       originalRequest._skipRefresh = true; // Prevent general retry mechanism from interfering
 
       try {
+        // Check if we're already on login page or state is cleared (prevent refresh attempts after logout)
+        if (typeof window !== 'undefined') {
+          const isOnLoginPage = window.location.pathname === '/login';
+          const hasAuthStorage = localStorage.getItem('auth-storage');
+          if (isOnLoginPage || !hasAuthStorage) {
+            // Already logged out or on login page - don't try to refresh
+            return Promise.reject(error);
+          }
+        }
+
         // Attempt to refresh token
         // HTTP-only cookies are automatically sent via withCredentials: true
         // If cookies are missing/invalid, this will return 401
@@ -124,28 +142,27 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         // Refresh failed - clear state without calling logout API (to prevent loop)
+        // Don't show error messages for refresh failures during logout
         if (typeof window !== 'undefined') {
           // Import authStore dynamically to avoid circular dependency
           import('@/store/authStore').then(({ useAuthStore }) => {
             const store = useAuthStore.getState();
-            // Clear state without calling logout API (to prevent loop)
-            store.setUser(null);
-            store.setPermissions([]);
-            store.setLoading(false);
-            if (typeof window !== 'undefined') {
+            // Only clear if not already cleared (prevent multiple redirects)
+            if (store.isAuthenticated) {
+              store.setUser(null);
+              store.setPermissions([]);
+              store.setLoading(false);
               localStorage.removeItem('auth-storage');
               sessionStorage.clear();
+              // Redirect to login if not already there
+              if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+              }
             }
           });
         }
         return Promise.reject(refreshError);
       }
-    }
-
-    // For logout requests with 401, just reject without trying to refresh
-    // The logout handler will clear state anyway
-    if (error.response?.status === 401 && isLogoutRequest) {
-      return Promise.reject(error);
     }
 
     // Handle 403 Forbidden - Insufficient permissions
@@ -202,8 +219,9 @@ apiClient.interceptors.response.use(
       error.message ||
       'An error occurred';
 
-    // Show toast notification for errors (except 401 which is handled above)
-    if (error.response?.status !== 401 && typeof window !== 'undefined') {
+    // Show toast notification for errors (except 401 and logout requests which are handled above)
+    // Don't show errors for logout requests - they're expected to fail if token is already invalid
+    if (error.response?.status !== 401 && !isLogoutRequest && typeof window !== 'undefined') {
       toast.error(errorMessage);
     }
 

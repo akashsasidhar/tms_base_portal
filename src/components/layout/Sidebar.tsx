@@ -221,19 +221,13 @@ export default function Sidebar({ isOpen: controlledIsOpen, onOpenChange }: Side
   }, [pathname]);
 
   const handleLogout = async () => {
-    try {
-      // Wait for logout to complete (clears cookies on backend)
-      await logout();
-      // Small delay to ensure cookies are processed by browser
-      await new Promise(resolve => setTimeout(resolve, 100));
-      // Use full page reload to ensure cookies are cleared and middleware sees the change
-      // This is necessary because HTTP-only cookies are cleared by the backend response
-      window.location.href = '/login';
-    } catch (error) {
-      // Even if logout fails, ensure redirect happens with full page reload
-      // Small delay to ensure state is cleared
-      await new Promise(resolve => setTimeout(resolve, 100));
-      window.location.href = '/login';
+    // Call logout (it will handle redirect internally)
+    await logout();
+    // Fallback redirect in case logout doesn't redirect (shouldn't happen, but safety net)
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 100);
     }
   };
 

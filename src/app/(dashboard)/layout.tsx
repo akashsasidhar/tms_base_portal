@@ -18,14 +18,42 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (hasCheckedAuth.current) return;
+    
+    // Don't check auth if we're already logged out (prevents API calls after logout)
+    if (typeof window !== 'undefined') {
+      const hasAuthStorage = localStorage.getItem('auth-storage');
+      if (!hasAuthStorage) {
+        // No auth storage means user is logged out - redirect to login
+        window.location.href = '/login';
+        return;
+      }
+    }
+    
     hasCheckedAuth.current = true;
-    checkAuth().catch(() => {});
+    checkAuth().catch(() => {
+      // If checkAuth fails, redirect to login
+      // This will happen automatically via the middleware, but we ensure it here too
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    });
   }, [checkAuth]);
 
-  if (isLoading || !isAuthenticated) {
+  // Show loading only if we're actively checking auth and not authenticated yet
+  // If checkAuth completed and user is not authenticated, middleware will redirect
+  if (isLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" text="Loading..." />
+      </div>
+    );
+  }
+
+  // If not authenticated after loading completes, show loading (middleware will redirect)
+  if (!isAuthenticated) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Redirecting..." />
       </div>
     );
   }
