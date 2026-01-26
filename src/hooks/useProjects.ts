@@ -94,3 +94,15 @@ export const useDeleteProject = () => {
     },
   });
 };
+
+/**
+ * Get simplified list of projects (for dropdowns, etc.)
+ * No permission required - only authentication
+ */
+export const useProjectsList = (query: { is_active?: boolean } = {}) => {
+  return useQuery({
+    queryKey: ['projects', 'list', query],
+    queryFn: () => projectService.getList(query),
+    staleTime: 60 * 1000, // 1 minute
+  });
+};

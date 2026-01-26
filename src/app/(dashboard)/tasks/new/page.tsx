@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useCreateTask } from '@/hooks/useTasks';
-import { useProjects } from '@/hooks/useProjects';
+import { useProjectsList } from '@/hooks/useProjects';
 import { useUsersList } from '@/hooks/useUsers';
 import { useTaskTypes } from '@/hooks/useRoles';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -83,7 +83,7 @@ export default function NewTaskPage() {
   const { mutate: createTask, isPending } = useCreateTask();
   const { hasPermission } = usePermissions();
   const { user } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Array<{ id: string; name: string; is_active: boolean }>>([]);
   const [assignableUsers, setAssignableUsers] = useState<User[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -92,7 +92,7 @@ export default function NewTaskPage() {
   const canSetDueDate = hasPermission('tasks:update') || hasPermission('projects:update'); // Project Manager/Admin
 
   // Fetch projects
-  const { data: projectsData } = useProjects({ limit: 1000, is_active: true });
+  const { data: projectsList } = useProjectsList({ is_active: true });
 
   // Fetch task types (reusable endpoint - no roles:read permission required)
   const { data: taskTypesData } = useTaskTypes();
@@ -104,11 +104,11 @@ export default function NewTaskPage() {
   const { data: usersList } = useUsersList({ is_active: true });
 
   useEffect(() => {
-    if (projectsData?.data) {
-      setProjects(projectsData.data);
+    if (projectsList) {
+      setProjects(projectsList);
       setLoadingProjects(false);
     }
-  }, [projectsData]);
+  }, [projectsList]);
 
   if (!canCreate) {
     return (

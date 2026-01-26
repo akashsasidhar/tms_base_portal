@@ -56,6 +56,12 @@ export interface CreateTaskRequest {
   assignee_ids?: string[];
 }
 
+export interface AssigneeUpdateTaskRequest {
+  status?: 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
+  output_file_url?: string | null;
+  comment?: string | null;
+}
+
 export interface UpdateTaskRequest {
   project_id?: string;
   title?: string;

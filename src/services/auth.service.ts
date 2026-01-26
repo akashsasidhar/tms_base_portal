@@ -16,6 +16,12 @@ class AuthService {
    */
   async login(credentials: LoginRequest): Promise<User> {
     const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
+    
+    // Check if response is successful and user data exists
+    if (!response.data.success || !response.data.data?.user) {
+      throw new Error(response.data.message || 'Login failed');
+    }
+    
     const user = response.data.data.user;
     const permissions = response.data.data.permissions || [];
     
@@ -42,6 +48,12 @@ class AuthService {
    */
   async register(data: Omit<RegisterRequest, 'confirm_password'>): Promise<User> {
     const response = await apiClient.post<AuthResponse>('/auth/register', data);
+    
+    // Check if response is successful and user data exists
+    if (!response.data.success || !response.data.data?.user) {
+      throw new Error(response.data.message || 'Registration failed');
+    }
+    
     return response.data.data.user;
   }
 
@@ -57,6 +69,12 @@ class AuthService {
    */
   async getCurrentUser(): Promise<{ user: User; permissions: string[] }> {
     const response = await apiClient.get<{ success: boolean; data: { user: User; permissions: string[] } }>('/auth/me');
+    
+    // Check if response is successful and user data exists
+    if (!response.data.success || !response.data.data?.user) {
+      throw new Error('Failed to get current user');
+    }
+    
     return {
       user: response.data.data.user,
       permissions: response.data.data.permissions || [],
@@ -71,12 +89,15 @@ class AuthService {
     try {
       // Try to get permissions from /auth/me first
       const userResponse = await apiClient.get<{ success: boolean; data: { user: User; permissions?: string[] } }>('/auth/me');
-      if (userResponse.data.data.permissions) {
+      if (userResponse.data.success && userResponse.data.data?.permissions) {
         return userResponse.data.data.permissions;
       }
       // Fallback: try dedicated endpoint
       const response = await apiClient.get<{ success: boolean; data: { permissions: string[] } }>('/auth/permissions');
-      return response.data.data.permissions || [];
+      if (response.data.success && response.data.data?.permissions) {
+        return response.data.data.permissions;
+      }
+      return [];
     } catch (error) {
       console.error('Error fetching permissions:', error);
       return [];
@@ -128,6 +149,13 @@ class AuthService {
    */
   async verifyContact(contactId: string, code: string): Promise<void> {
     await apiClient.post('/auth/verify-contact', { contact_id: contactId, code });
+  }
+
+  /**
+   * Resend verification email for unverified users
+   */
+  async resendVerification(email: string): Promise<void> {
+    await apiClient.post('/auth/resend-verification', { email });
   }
 }
 

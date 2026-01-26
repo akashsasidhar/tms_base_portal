@@ -5,8 +5,8 @@ import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
-import { useTask, useUpdateTask } from '@/hooks/useTasks';
-import { useProjects } from '@/hooks/useProjects';
+import { useTask, useUpdateTask, useAssigneeUpdateTask } from '@/hooks/useTasks';
+import { useProjectsList } from '@/hooks/useProjects';
 import { useUsersList } from '@/hooks/useUsers';
 import { useTaskTypes } from '@/hooks/useRoles';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -37,7 +37,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 import type { Project } from '@/types/project.types';
 import type { User } from '@/types/user.types';
 
-// Validation schema
+// Validation schema for full task update (PM/Admin)
 const updateTaskSchema = z.object({
   project_id: z.string().uuid('Invalid project ID').optional(),
   title: z.string().min(1, 'Task title is required').max(255, 'Task title must not exceed 255 characters').optional(),
@@ -63,6 +63,7 @@ const updateTaskSchema = z.object({
     .nullable(),
   is_active: z.boolean().optional(),
   assignee_ids: z.array(z.string().uuid('Invalid assignee ID')).optional(),
+  comment: z.string().max(5000, 'Comment must not exceed 5000 characters').optional().nullable(),
 }).refine(
   (data) => {
     // If both dates are provided, due_date should be after started_date
@@ -77,7 +78,21 @@ const updateTaskSchema = z.object({
   }
 );
 
+// Validation schema for assignee update (limited fields)
+const assigneeUpdateTaskSchema = z.object({
+  status: z.enum(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE']).optional(),
+  output_file_url: z
+    .union([z.string().max(500, 'URL must not exceed 500 characters'), z.literal('')])
+    .refine((val) => !val || val === '' || /^https?:\/\/.+/.test(val), {
+      message: 'Invalid URL format',
+    })
+    .optional()
+    .nullable(),
+  comment: z.string().max(5000, 'Comment must not exceed 5000 characters').optional().nullable(),
+});
+
 type UpdateTaskFormData = z.infer<typeof updateTaskSchema>;
+type AssigneeUpdateTaskFormData = z.infer<typeof assigneeUpdateTaskSchema>;
 
 
 // Roles to exclude from task types
@@ -104,9 +119,10 @@ export default function EditTaskPage({
     }
   }, [taskId, isLoadingTask, task, taskError]);
   const { mutate: updateTask, isPending } = useUpdateTask();
+  const { mutate: assigneeUpdateTask, isPending: isAssigneeUpdating } = useAssigneeUpdateTask();
   const { hasPermission } = usePermissions();
   const { user } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Array<{ id: string; name: string; is_active: boolean }>>([]);
   const [assignableUsers, setAssignableUsers] = useState<User[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -139,7 +155,7 @@ export default function EditTaskPage({
   const taskType = useWatch({ control, name: 'task_type' });
 
   // Fetch projects
-  const { data: projectsData } = useProjects({ limit: 1000, is_active: true });
+  const { data: projectsList } = useProjectsList({ is_active: true });
 
   // Fetch task types (reusable endpoint - no roles:read permission required)
   const { data: taskTypesData } = useTaskTypes();
@@ -151,11 +167,11 @@ export default function EditTaskPage({
   const { data: usersList } = useUsersList({ is_active: true });
 
   useEffect(() => {
-    if (projectsData?.data) {
-      setProjects(projectsData.data);
+    if (projectsList) {
+      setProjects(projectsList);
       setLoadingProjects(false);
     }
-  }, [projectsData]);
+  }, [projectsList]);
 
   // Filter assignees based on task type (from form or task data)
   useEffect(() => {
@@ -181,6 +197,14 @@ export default function EditTaskPage({
   const canUpdate = hasPermission('tasks:update');
   const canSetDueDate = hasPermission('tasks:update') || hasPermission('projects:update'); // Project Manager/Admin
   const isAssignee = task?.assignees?.some((a) => a.user_id === user?.id) || false;
+  
+  // Check if user has Developer, Designer, or Marketing role (assignee-only roles)
+  const isAssigneeOnlyRole = user?.roles?.some((role) => 
+    ['Developer', 'Designer', 'Marketing'].includes(role.name)
+  ) || false;
+  
+  const isAssigneeOnly = isAssigneeOnlyRole; // Developer/Designer/Marketing without update permission
+
   const canEdit = canUpdate || isAssignee; // Task assignees can also edit
   const canSetInputFile = canUpdate; // PM/Admin only
   const canSetOutputFile = isAssignee || canUpdate; // Assignees or PM/Admin
@@ -280,37 +304,65 @@ export default function EditTaskPage({
     );
   }
 
-  const onSubmit = async (data: UpdateTaskFormData) => {
+  const onSubmit = async (data: UpdateTaskFormData | AssigneeUpdateTaskFormData) => {
+    // If user is assignee only (not PM/Admin), use assignee update endpoint
+    if (isAssigneeOnly) {
+      const assigneeData = data as AssigneeUpdateTaskFormData;
+      const submitData: any = {};
+      
+      if (assigneeData.status !== undefined) {
+        submitData.status = assigneeData.status;
+      }
+      if (assigneeData.output_file_url !== undefined) {
+        submitData.output_file_url = assigneeData.output_file_url || null;
+      }
+      if (assigneeData.comment !== undefined) {
+        submitData.comment = assigneeData.comment || null;
+      }
+
+      assigneeUpdateTask(
+        { id: taskId, data: submitData },
+        {
+          onSuccess: () => {
+            router.push('/tasks');
+          },
+        }
+      );
+      return;
+    }
+
+    // Full update for PM/Admin
+    const fullData = data as UpdateTaskFormData;
     const submitData: any = {
-      title: data.title,
-      task_type: data.task_type,
-      description: data.description || null,
-      priority: data.priority,
-      status: data.status,
-      started_date: data.started_date || null,
-      is_active: data.is_active,
-      assignee_ids: data.assignee_ids || [],
+      title: fullData.title,
+      task_type: fullData.task_type,
+      description: fullData.description || null,
+      priority: fullData.priority,
+      status: fullData.status,
+      started_date: fullData.started_date || null,
+      is_active: fullData.is_active,
+      assignee_ids: fullData.assignee_ids || [],
     };
 
     // Only allow Project Manager/Admin to update project_id and due_date
     if (canUpdate) {
-      if (data.project_id !== undefined) submitData.project_id = data.project_id;
-      if (canSetDueDate && data.due_date !== undefined) {
-        submitData.due_date = data.due_date || null;
+      if (fullData.project_id !== undefined) submitData.project_id = fullData.project_id;
+      if (canSetDueDate && fullData.due_date !== undefined) {
+        submitData.due_date = fullData.due_date || null;
       }
-      if (data.input_file_url !== undefined) {
-        submitData.input_file_url = data.input_file_url || null;
+      if (fullData.input_file_url !== undefined) {
+        submitData.input_file_url = fullData.input_file_url || null;
       }
     } else {
       // Assignees can only update started_date, not due_date
-      if (data.started_date !== undefined) {
-        submitData.started_date = data.started_date || null;
+      if (fullData.started_date !== undefined) {
+        submitData.started_date = fullData.started_date || null;
       }
     }
 
     // Output file URL can be set by assignees or PM/Admin
-    if (canSetOutputFile && data.output_file_url !== undefined) {
-      submitData.output_file_url = data.output_file_url || null;
+    if (canSetOutputFile && fullData.output_file_url !== undefined) {
+      submitData.output_file_url = fullData.output_file_url || null;
     }
 
     updateTask(
@@ -362,7 +414,7 @@ console.log(task,'----task')
                       <Select
                         value={value}
                         onValueChange={field.onChange}
-                        disabled={isPending || isLoadingTask || loadingProjects}
+                        disabled={isPending || isLoadingTask || loadingProjects|| isAssigneeOnly}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select a project" />
@@ -384,23 +436,26 @@ console.log(task,'----task')
               </div>
             )}
 
-            {/* Task Title */}
-            <div className="space-y-2">
-              <Label htmlFor="title">Task Title *</Label>
-              <Input
-                id="title"
-                {...register('title')}
-                disabled={isPending || isLoadingTask}
-                placeholder="Enter task title"
-              />
-              {errors.title && (
-                <p className="text-sm text-destructive">{errors.title.message}</p>
-              )}
-            </div>
+            {/* Task Title - Only for PM/Admin */}
+            {!isAssigneeOnly && (
+              <div className="space-y-2">
+                <Label htmlFor="title">Task Title *</Label>
+                <Input
+                  id="title"
+                  {...register('title')}
+                  disabled={isPending || isLoadingTask || isAssigneeUpdating}
+                  placeholder="Enter task title"
+                />
+                {errors.title && (
+                  <p className="text-sm text-destructive">{errors.title.message}</p>
+                )}
+              </div>
+            )}
 
-            {/* Task Type */}
-            <div className="space-y-2">
-              <Label htmlFor="task_type">Task Type *</Label>
+            {/* Task Type - Only for PM/Admin */}
+            {!isAssigneeOnly && (
+              <div className="space-y-2">
+                <Label htmlFor="task_type">Task Type *</Label>
               <Controller
                 name="task_type"
                 control={control}
@@ -414,7 +469,7 @@ console.log(task,'----task')
                     <Select
                       value={value}
                       onValueChange={field.onChange}
-                      disabled={isPending || isLoadingTask}
+                      disabled={isPending || isLoadingTask || isAssigneeUpdating || isAssigneeOnly}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select task type" />
@@ -433,27 +488,32 @@ console.log(task,'----task')
               {errors.task_type && (
                 <p className="text-sm text-destructive">{errors.task_type.message}</p>
               )}
-            </div>
+              </div>
+            )}
 
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+            {/* Description - Only for PM/Admin */}
+            {!isAssigneeOnly && (
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
                 {...register('description')}
-                disabled={isPending || isLoadingTask}
+                disabled={isPending || isLoadingTask || isAssigneeUpdating || isAssigneeOnly}
                 placeholder="Describe the task..."
                 rows={4}
               />
               {errors.description && (
                 <p className="text-sm text-destructive">{errors.description.message}</p>
               )}
-            </div>
+              </div>
+            )}
 
             {/* Priority and Status */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="priority">Priority</Label>
+            <div className={isAssigneeOnly ? "space-y-2" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
+              {/* Priority - Only for PM/Admin */}
+              {!isAssigneeOnly && (
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority</Label>
                 <Controller
                   name="priority"
                   control={control}
@@ -466,7 +526,7 @@ console.log(task,'----task')
                       <Select
                         value={value}
                         onValueChange={field.onChange}
-                        disabled={isPending || isLoadingTask}
+                        disabled={isPending || isLoadingTask || isAssigneeUpdating || isAssigneeOnly}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select priority" />
@@ -485,10 +545,12 @@ console.log(task,'----task')
                 {errors.priority && (
                   <p className="text-sm text-destructive">{errors.priority.message}</p>
                 )}
-              </div>
+                </div>
+              )}
 
+              {/* Status - Available for both assignees and PM/Admin */}
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="status">Status *</Label>
                 <Controller
                   name="status"
                   control={control}
@@ -501,7 +563,7 @@ console.log(task,'----task')
                       <Select
                         value={value}
                         onValueChange={field.onChange}
-                        disabled={isPending || isLoadingTask}
+                        disabled={isPending || isLoadingTask || isAssigneeUpdating}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select status" />
@@ -523,15 +585,16 @@ console.log(task,'----task')
               </div>
             </div>
 
-            {/* Dates */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Dates - Only for PM/Admin */}
+            {!isAssigneeOnly && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="started_date">Start Date</Label>
                 <Input
                   id="started_date"
                   type="date"
                   {...register('started_date')}
-                  disabled={isPending}
+                  disabled={isPending || isAssigneeUpdating || isAssigneeOnly}
                 />
                 {errors.started_date && (
                   <p className="text-sm text-destructive">{errors.started_date.message}</p>
@@ -546,13 +609,14 @@ console.log(task,'----task')
                   id="due_date"
                   type="date"
                   {...register('due_date')}
-                  disabled={isPending || isLoadingTask || !canSetDueDate}
+                        disabled={isPending || isLoadingTask || isAssigneeUpdating || !canSetDueDate || isAssigneeOnly}
                 />
                 {errors.due_date && (
                   <p className="text-sm text-destructive">{errors.due_date.message}</p>
                 )}
               </div>
-            </div>
+              </div>
+            )}
 
             {/* File URLs */}
             <div className="space-y-4">
@@ -565,7 +629,7 @@ console.log(task,'----task')
                     id="input_file_url"
                     type="url"
                     {...register('input_file_url')}
-                    disabled={isPending || isLoadingTask}
+                    disabled={isPending || isLoadingTask || isAssigneeUpdating || isAssigneeOnly}
                     placeholder="https://example.com/files/design.psd"
                   />
                   {errors.input_file_url && (
@@ -582,7 +646,7 @@ console.log(task,'----task')
                   id="output_file_url"
                   type="url"
                   {...register('output_file_url')}
-                  disabled={isPending || isLoadingTask || !canSetOutputFile}
+                  disabled={isPending || isLoadingTask || isAssigneeUpdating}
                   placeholder="https://example.com/files/final-design.psd"
                 />
                 {errors.output_file_url && (
@@ -592,6 +656,28 @@ console.log(task,'----task')
                   <p className="text-xs text-muted-foreground">Only assigned users or PM/Admin can set the output file URL</p>
                 )}
               </div>
+            </div>
+
+            {/* Comment Field - Available for assignees and PM/Admin */}
+            <div className="space-y-2">
+              <Label htmlFor="comment">
+                Comment {isAssigneeOnly && <span className="text-muted-foreground text-xs">(Optional - will be logged in task updates)</span>}
+              </Label>
+              <Textarea
+                id="comment"
+                {...register('comment')}
+                disabled={isPending || isLoadingTask || isAssigneeUpdating}
+                placeholder="Add a comment about this update..."
+                rows={3}
+              />
+              {errors.comment && (
+                <p className="text-sm text-destructive">{errors.comment.message}</p>
+              )}
+              {isAssigneeOnly && (
+                <p className="text-xs text-muted-foreground">
+                  Your comment will be logged in the task update history when you change the status.
+                </p>
+              )}
             </div>
 
             {/* Task Assignee - Single selection based on task type - Only Project Manager/Admin can change */}
@@ -625,7 +711,7 @@ console.log(task,'----task')
                               // Store as array with single item to match API structure
                               field.onChange(value ? [value] : []);
                             }}
-                            disabled={isPending || isLoadingTask || loadingUsers}
+                            disabled={isPending || isLoadingTask || isAssigneeUpdating || loadingUsers || isAssigneeOnly}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder={`Select ${currentTaskType} assignee...`} />
@@ -653,21 +739,6 @@ console.log(task,'----task')
               </div>
             )}
 
-            {/* Active Status - Only Project Manager/Admin */}
-            {canUpdate && (
-              <div className="space-y-2">
-                <Label htmlFor="is_active" className="flex items-center gap-2">
-                  <input
-                    id="is_active"
-                    type="checkbox"
-                    {...register('is_active')}
-                    disabled={isPending || isLoadingTask}
-                    className="h-4 w-4"
-                  />
-                  Active
-                </Label>
-              </div>
-            )}
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             <Link href="/tasks">

@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -19,9 +18,16 @@ import { toast } from 'sonner';
 
 export default function UserNav() {
   const { user, logout } = useAuth();
-  const router = useRouter();
 
   if (!user) return null;
+  
+  // Use window.location for navigation to avoid router context issues
+  // This works even in error boundaries where router context might not be available
+  const navigate = (path: string) => {
+    if (typeof window !== 'undefined') {
+      window.location.href = path;
+    }
+  };
 
   const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || user.username[0].toUpperCase();
   const displayName = user.first_name && user.last_name
@@ -109,15 +115,15 @@ export default function UserNav() {
         )}
 
         {/* Menu Items */}
-        <DropdownMenuItem onClick={() => router.push('/profile')}>
+        <DropdownMenuItem onClick={() => navigate('/profile')}>
           <User className="mr-2 h-4 w-4" />
           Profile
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push('/settings')}>
+        <DropdownMenuItem onClick={() => navigate('/settings')}>
           <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push('/change-password')}>
+        <DropdownMenuItem onClick={() => navigate('/change-password')}>
           <KeyRound className="mr-2 h-4 w-4" />
           Change Password
         </DropdownMenuItem>

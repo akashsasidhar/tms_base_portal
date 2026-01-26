@@ -67,6 +67,22 @@ class ProjectService {
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/projects/${id}`);
   }
+
+  /**
+   * Get simplified list of projects (for dropdowns, etc.)
+   * No permission required - only authentication
+   */
+  async getList(query: { is_active?: boolean } = {}): Promise<Array<{ id: string; name: string; is_active: boolean }>> {
+    const params = new URLSearchParams();
+    if (query.is_active !== undefined) {
+      params.append('is_active', query.is_active.toString());
+    }
+
+    const response = await apiClient.get<{ success: boolean; data: Array<{ id: string; name: string; is_active: boolean }>; message: string }>(
+      `/projects/list?${params.toString()}`
+    );
+    return response.data.data;
+  }
 }
 
 export const projectService = new ProjectService();

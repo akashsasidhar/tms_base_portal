@@ -12,6 +12,8 @@ interface AuthStore {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  requiresVerification: boolean;
+  unverifiedEmail: string | null;
 
   // Actions
   setUser: (user: User | null, permissions?: string[]) => void;
@@ -19,6 +21,7 @@ interface AuthStore {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
+  clearVerificationState: () => void;
 
   // Auth methods
   login: (contact: string, password: string, contactType?: string) => Promise<void>;
@@ -35,6 +38,8 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      requiresVerification: false,
+      unverifiedEmail: null,
 
       // Setters
       setUser: (user, permissions = []) =>
@@ -43,10 +48,11 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
       clearError: () => set({ error: null }),
+      clearVerificationState: () => set({ requiresVerification: false, unverifiedEmail: null }),
 
       // Login
       login: async (contact, password, contactType) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, requiresVerification: false, unverifiedEmail: null });
         try {
           const user = await authService.login({ contact, password, contact_type: contactType });
           
@@ -69,14 +75,33 @@ export const useAuthStore = createWithEqualityFn<AuthStore>()(
           }
           
           console.log('[AuthStore] Login - Final permissions to store:', permissions);
-          set({ user, permissions, isAuthenticated: true, isLoading: false });
+          set({ 
+            user, 
+            permissions, 
+            isAuthenticated: true, 
+            isLoading: false,
+            requiresVerification: false,
+            unverifiedEmail: null,
+          });
           toast.success('Login successful');
         } catch (error) {
-          const errorMessage =
-            (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-            'Login failed. Please check your credentials.';
-          set({ error: errorMessage, isLoading: false });
-          toast.error(errorMessage);
+          const errorResponse = error as { response?: { data?: { message?: string; data?: { requires_verification?: boolean; email?: string } } } };
+          const errorMessage = errorResponse?.response?.data?.message || 'Login failed. Please check your credentials.';
+          const requiresVerification = errorResponse?.response?.data?.data?.requires_verification || false;
+          const userEmail = errorResponse?.response?.data?.data?.email;
+          
+          set({ 
+            error: errorMessage, 
+            isLoading: false,
+            requiresVerification,
+            unverifiedEmail: userEmail,
+          });
+          
+          // Don't show toast for unverified accounts - LoginForm will handle it
+          if (!requiresVerification) {
+            toast.error(errorMessage);
+          }
+          
           throw error;
         }
       },

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { taskService } from '@/services/task.service';
-import type { Task, CreateTaskRequest, UpdateTaskRequest, GetTasksQuery } from '@/types/task.types';
+import type { Task, CreateTaskRequest, UpdateTaskRequest, AssigneeUpdateTaskRequest, GetTasksQuery } from '@/types/task.types';
 import { toast } from 'sonner';
 
 /**
@@ -112,6 +112,29 @@ export const useDeleteTask = () => {
       const errorMessage =
         (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to delete task';
+      toast.error(errorMessage);
+    },
+  });
+};
+
+/**
+ * Assignee update task mutation (limited fields: status, output_file_url, comment)
+ */
+export const useAssigneeUpdateTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: AssigneeUpdateTaskRequest }) =>
+      taskService.assigneeUpdate(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task', variables.id] });
+      toast.success('Task updated successfully');
+    },
+    onError: (error: unknown) => {
+      const errorMessage =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to update task';
       toast.error(errorMessage);
     },
   });

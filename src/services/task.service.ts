@@ -3,6 +3,7 @@ import type {
   Task,
   CreateTaskRequest,
   UpdateTaskRequest,
+  AssigneeUpdateTaskRequest,
   GetTasksQuery,
   TasksResponse,
   TaskResponse,
@@ -118,6 +119,14 @@ class TaskService {
    */
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/tasks/${id}`);
+  }
+
+  /**
+   * Update task by assignee (limited fields: status, output_file_url, comment)
+   */
+  async assigneeUpdate(id: string, data: AssigneeUpdateTaskRequest): Promise<Task> {
+    const response = await apiClient.put<TaskResponse>(`/tasks/${id}/assignee-update`, data);
+    return response.data.data;
   }
 }
 
