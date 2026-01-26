@@ -16,6 +16,7 @@ interface StatCardProps {
   };
   loading?: boolean;
   description?: string;
+  variant?: 'default' | 'warning' | 'success';
 }
 
 const StatCard = memo(function StatCard({
@@ -25,6 +26,7 @@ const StatCard = memo(function StatCard({
   trend,
   loading,
   description,
+  variant = 'default',
 }: StatCardProps) {
   if (loading) {
     return (
@@ -50,7 +52,11 @@ const StatCard = memo(function StatCard({
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className={cn(
+          "text-2xl font-bold",
+          variant === 'warning' && "text-orange-600",
+          variant === 'success' && "text-green-600"
+        )}>{value}</div>
         {trend && (
           <div
             className={cn(

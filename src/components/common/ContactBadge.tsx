@@ -45,7 +45,7 @@ const ContactBadge = memo(function ContactBadge({
     >
       <Icon className="h-3 w-3" />
       <span>{contact.contact}</span>
-      {showType && (
+      {showType && contact.contact_type && (
         <span className="text-xs text-muted-foreground ml-1">
           ({contact.contact_type})
         </span>

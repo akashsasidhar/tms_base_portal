@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -35,6 +34,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface NavSubItem {
   href: string;
@@ -78,9 +83,40 @@ export default function Sidebar({ isOpen: controlledIsOpen, onOpenChange }: Side
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
-  const pathname = usePathname();
+  const [pathname, setPathname] = useState<string>('');
   const { user, permissions, logout } = useAuth();
   const router = useRouter();
+  
+  // Safely get pathname - use window.location to avoid router context issues
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setPathname(window.location.pathname);
+    }
+  }, []);
+
+  // Listen to navigation changes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handlePopState = () => {
+      setPathname(window.location.pathname);
+    };
+
+    const checkPathname = () => {
+      const currentPath = window.location.pathname;
+      if (currentPath !== pathname) {
+        setPathname(currentPath);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    const interval = setInterval(checkPathname, 200);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      clearInterval(interval);
+    };
+  }, [pathname]);
   
   // Use controlled state if provided, otherwise use internal state
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -268,7 +304,65 @@ export default function Sidebar({ isOpen: controlledIsOpen, onOpenChange }: Side
               const isExpanded = expandedMenus.has(item.label);
 
               // If item has sub-items, render as expandable menu
-              if (hasSubItems && !isCollapsed) {
+              if (hasSubItems) {
+                // When collapsed, show dropdown menu
+                if (isCollapsed) {
+                  // Use a component to manage dropdown state per item
+                  const CollapsedSubMenu = () => {
+                    const [dropdownOpen, setDropdownOpen] = useState(false);
+                    
+                    return (
+                      <DropdownMenu onOpenChange={setDropdownOpen}>
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip open={dropdownOpen ? false : undefined}>
+                            <TooltipTrigger asChild>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant={isActive ? 'secondary' : 'ghost'}
+                                  size="icon"
+                                  className={cn(
+                                    'w-full justify-center',
+                                    isActive && 'bg-accent'
+                                  )}
+                                >
+                                  <Icon className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                              <p>{item.label}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <DropdownMenuContent side="right" align="start" className="w-48">
+                          {item.subItems!.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            const isSubActive = isSubItemActive(subItem.href);
+                            return (
+                              <DropdownMenuItem key={subItem.href} asChild>
+                                <Link
+                                  href={subItem.href}
+                                  onClick={() => setIsOpen(false)}
+                                  className={cn(
+                                    'flex items-center cursor-pointer',
+                                    isSubActive && 'bg-accent'
+                                  )}
+                                >
+                                  <SubIcon className="h-4 w-4 mr-2" />
+                                  {subItem.label}
+                                </Link>
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    );
+                  };
+                  
+                  return <CollapsedSubMenu key={item.label} />;
+                }
+                
+                // When expanded, show inline sub-menu
                 return (
                   <div key={item.label} className="space-y-1">
                     <Button
