@@ -3,6 +3,7 @@ import { useStoreWithEqualityFn } from 'zustand/traditional';
 import { shallow } from 'zustand/shallow';
 import { useMemo, useCallback } from 'react';
 import type { UserContact } from '@/types/auth.types';
+import { hasAdminRole as checkAdminRole } from '@/utils/role.util';
 
 export const useAuth = () => {
   // Use shallow comparison to prevent unnecessary re-renders
@@ -90,6 +91,11 @@ export const useAuth = () => {
     [user]
   );
 
+  // Check if user has admin role
+  const hasAdminRole = useCallback((): boolean => {
+    return checkAdminRole(user?.roles);
+  }, [user?.roles]);
+
   return {
     user,
     permissions,
@@ -102,6 +108,7 @@ export const useAuth = () => {
     clearError,
     hasRole,
     hasAnyRole,
+    hasAdminRole,
     getPrimaryContact,
     getContactByType,
     getContactsByType,

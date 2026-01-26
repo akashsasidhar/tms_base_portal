@@ -79,11 +79,11 @@ const updateTaskSchema = z.object({
 
 type UpdateTaskFormData = z.infer<typeof updateTaskSchema>;
 
-const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH'] as const;
-const STATUSES = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'] as const;
 
 // Roles to exclude from task types
-const EXCLUDED_ROLES = ['Project Manager', 'Admin', 'Super Admin'];
+import { TASK_PRIORITIES, TASK_STATUSES, formatTaskStatus, validateTaskDateRange } from '@/utils/task.util';
+import { formatDateForInput } from '@/utils/date.util';
+import { getUserDisplayName } from '@/utils/user.util';
 
 export default function EditTaskPage({
   params,
@@ -323,10 +323,6 @@ export default function EditTaskPage({
     );
   };
 
-  const getUserDisplayName = (user: User): string => {
-    const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-    return name || user.username;
-  };
 console.log(task,'----task')
   return (
     <div className="space-y-6">
@@ -476,7 +472,7 @@ console.log(task,'----task')
                           <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                         <SelectContent>
-                          {PRIORITIES.map((priority) => (
+                          {TASK_PRIORITIES.map((priority) => (
                             <SelectItem key={priority} value={priority}>
                               {priority}
                             </SelectItem>
@@ -511,9 +507,9 @@ console.log(task,'----task')
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
-                          {STATUSES.map((status) => (
+                          {TASK_STATUSES.map((status) => (
                             <SelectItem key={status} value={status}>
-                              {status.replace('_', ' ')}
+                              {formatTaskStatus(status)}
                             </SelectItem>
                           ))}
                         </SelectContent>

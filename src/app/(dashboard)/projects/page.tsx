@@ -24,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDeleteProject } from '@/hooks/useProjects';
-import { format } from 'date-fns';
+import { formatDateDisplay } from '@/utils/date.util';
+import { getUserDisplayName } from '@/utils/user.util';
 
 export default function ProjectsPage() {
   const [search, setSearch] = useState('');

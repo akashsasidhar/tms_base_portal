@@ -64,7 +64,7 @@ const createTaskSchema = z.object({
 }).refine(
   (data) => {
     // Due date must be after or equal to start date
-    return new Date(data.due_date) >= new Date(data.started_date);
+    return validateTaskDateRange(data.started_date, data.due_date);
   },
   {
     message: 'Due date must be after or equal to start date',
@@ -74,8 +74,9 @@ const createTaskSchema = z.object({
 
 type CreateTaskFormData = z.infer<typeof createTaskSchema>;
 
-const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH'] as const;
-const STATUSES = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'] as const;
+import { TASK_PRIORITIES, TASK_STATUSES, validateTaskDateRange, formatTaskStatus } from '@/utils/task.util';
+import { filterTaskTypeRoles } from '@/utils/role.util';
+import { getUserDisplayName } from '@/utils/user.util';
 
 export default function NewTaskPage() {
   const router = useRouter();
@@ -96,7 +97,7 @@ export default function NewTaskPage() {
   // Fetch task types (reusable endpoint - no roles:read permission required)
   const { data: taskTypesData } = useTaskTypes();
   
-  // Get task type names from the response
+  // Get task type names from the response (already filtered by backend)
   const taskTypes = taskTypesData?.map((role) => role.name) || [];
 
   // Fetch users with Designer/Developer/Marketing roles using the list endpoint (no permission required)
@@ -190,10 +191,6 @@ export default function NewTaskPage() {
     });
   };
 
-  const getUserDisplayName = (user: User): string => {
-    const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-    return name || user.username;
-  };
 
   return (
     <div className="space-y-6">
@@ -324,7 +321,7 @@ export default function NewTaskPage() {
                         <SelectValue placeholder="Select priority" />
                       </SelectTrigger>
                       <SelectContent>
-                        {PRIORITIES.map((priority) => (
+                        {TASK_PRIORITIES.map((priority) => (
                           <SelectItem key={priority} value={priority}>
                             {priority}
                           </SelectItem>
@@ -353,9 +350,9 @@ export default function NewTaskPage() {
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        {STATUSES.map((status) => (
+                        {TASK_STATUSES.map((status) => (
                           <SelectItem key={status} value={status}>
-                            {status.replace('_', ' ')}
+                            {formatTaskStatus(status)}
                           </SelectItem>
                         ))}
                       </SelectContent>

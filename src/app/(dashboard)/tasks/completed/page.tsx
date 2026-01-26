@@ -24,13 +24,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDeleteTask } from '@/hooks/useTasks';
-import { format } from 'date-fns';
-
-const priorityColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
-  LOW: 'secondary',
-  MEDIUM: 'default',
-  HIGH: 'destructive',
-};
+import { formatDateDisplay, getPriorityVariant, getStatusVariant, formatTaskStatus } from '@/utils/task.util';
+import { getAssigneeNames } from '@/utils/user.util';
 
 export default function CompletedTasksPage() {
   const [search, setSearch] = useState('');
@@ -155,17 +150,7 @@ export default function CompletedTasksPage() {
               </TableHeader>
               <TableBody>
                 {data.data.map((task) => {
-                  const assigneeNames = task.assignees
-                    ? task.assignees
-                        .map((a) => {
-                          const user = a.user;
-                          if (!user) return null;
-                          const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-                          return name || user.username;
-                        })
-                        .filter(Boolean)
-                        .join(', ')
-                    : 'Unassigned';
+                  const assigneeNames = getAssigneeNames(task.assignees);
 
                   return (
                     <TableRow key={task.id}>
@@ -175,15 +160,15 @@ export default function CompletedTasksPage() {
                         <Badge variant="outline">{task.task_type}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={priorityColors[task.priority] || 'default'}>
+                        <Badge variant={getPriorityVariant(task.priority)}>
                           {task.priority}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {task.due_date ? format(new Date(task.due_date), 'MMM dd, yyyy') : '-'}
+                        {formatDateDisplay(task.due_date)}
                       </TableCell>
                       <TableCell className="max-w-xs truncate">
-                        {assigneeNames || 'Unassigned'}
+                        {assigneeNames}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

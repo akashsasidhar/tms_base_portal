@@ -24,20 +24,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDeleteTask } from '@/hooks/useTasks';
-import { format } from 'date-fns';
-
-const priorityColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
-  LOW: 'secondary',
-  MEDIUM: 'default',
-  HIGH: 'destructive',
-};
-
-const statusColors: Record<string, 'default' | 'secondary' | 'outline'> = {
-  TODO: 'outline',
-  IN_PROGRESS: 'default',
-  REVIEW: 'secondary',
-  DONE: 'default',
-};
+import { formatDateDisplay, getPriorityVariant, getStatusVariant, formatTaskStatus } from '@/utils/task.util';
+import { getAssigneeNames } from '@/utils/user.util';
 
 export default function PendingTasksPage() {
   const [search, setSearch] = useState('');
@@ -163,17 +151,7 @@ export default function PendingTasksPage() {
               </TableHeader>
               <TableBody>
                 {data.data.map((task) => {
-                  const assigneeNames = task.assignees
-                    ? task.assignees
-                        .map((a) => {
-                          const user = a.user;
-                          if (!user) return null;
-                          const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-                          return name || user.username;
-                        })
-                        .filter(Boolean)
-                        .join(', ')
-                    : 'Unassigned';
+                  const assigneeNames = getAssigneeNames(task.assignees);
 
                   return (
                     <TableRow key={task.id}>
@@ -183,17 +161,17 @@ export default function PendingTasksPage() {
                         <Badge variant="outline">{task.task_type}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={priorityColors[task.priority] || 'default'}>
+                        <Badge variant={getPriorityVariant(task.priority)}>
                           {task.priority}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={statusColors[task.status] || 'default'}>
-                          {task.status.replace('_', ' ')}
+                        <Badge variant={getStatusVariant(task.status)}>
+                          {formatTaskStatus(task.status)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-destructive font-medium">
-                        {task.due_date ? format(new Date(task.due_date), 'MMM dd, yyyy') : '-'}
+                        {formatDateDisplay(task.due_date)}
                       </TableCell>
                       <TableCell className="max-w-xs truncate">
                         {assigneeNames || 'Unassigned'}

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import appConfig from '@/config/app.config';
+import { getCurrentYear } from '@/utils/date.util';
 
 export default function Footer() {
   return (
@@ -30,7 +31,7 @@ export default function Footer() {
           </Link>
         </div>
         <div className="text-xs">
-          © {new Date().getFullYear()} {appConfig.APP_NAME}. All rights reserved.
+          © {getCurrentYear()} {appConfig.APP_NAME}. All rights reserved.
         </div>
       </div>
     </footer>

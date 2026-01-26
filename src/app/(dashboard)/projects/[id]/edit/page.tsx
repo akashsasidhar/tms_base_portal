@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { formatDateForInput, validateDateRange } from '@/utils/date.util';
+import { filterUsersByRole, getUserDisplayName } from '@/utils/user.util';
 import { useRouter } from 'next/navigation';
 import { useProject, useUpdateProject } from '@/hooks/useProjects';
 import { useUsersList } from '@/hooks/useUsers';
@@ -44,7 +46,7 @@ const updateProjectSchema = z.object({
   (data) => {
     // If both dates are provided, end_date should be after start_date
     if (data.start_date && data.end_date) {
-      return new Date(data.end_date) >= new Date(data.start_date);
+      return validateDateRange(data.start_date, data.end_date);
     }
     return true;
   },
@@ -97,10 +99,6 @@ export default function EditProjectPage({
     resolver: zodResolver(updateProjectSchema),
   });
 
-  const getUserDisplayName = (user: User): string => {
-    const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-    return name || user.username;
-  };
 
   // Populate form when project data loads
   useEffect(() => {
@@ -109,8 +107,8 @@ export default function EditProjectPage({
         name: project.name,
         description: project.description || '',
         project_manager_id: project.project_manager_id || null,
-        start_date: project.start_date ? new Date(project.start_date).toISOString().split('T')[0] : '',
-        end_date: project.end_date ? new Date(project.end_date).toISOString().split('T')[0] : '',
+        start_date: formatDateForInput(project.start_date),
+        end_date: formatDateForInput(project.end_date),
         is_active: project.is_active,
       });
     }

@@ -11,7 +11,7 @@ import Link from 'next/link';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import ContactBadge from '@/components/common/ContactBadge';
 import RoleBadge from '@/components/common/RoleBadge';
-import { format } from 'date-fns';
+import { formatDateDetailed } from '@/utils/date.util';
 import type { UserContact } from '@/types/auth.types';
 
 // UUID validation regex
@@ -199,13 +199,13 @@ export default function UserDetailPage({
             <div>
               <label className="text-sm font-medium text-muted-foreground">Created At</label>
               <p className="text-base">
-                {user.created_at ? format(new Date(user.created_at), 'PPpp') : '-'}
+                {formatDateDetailed(user.created_at)}
               </p>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
               <p className="text-base">
-                {user.updated_at ? format(new Date(user.updated_at), 'PPpp') : '-'}
+                {formatDateDetailed(user.updated_at)}
               </p>
             </div>
           </CardContent>

@@ -20,7 +20,7 @@ import Link from "next/link";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import ContactBadge from "@/components/common/ContactBadge";
 import RoleBadge from "@/components/common/RoleBadge";
-import { format } from "date-fns";
+import { formatDateDisplay } from '@/utils/date.util';
 
 export default function ProfilePage() {
   const { user, isLoading, hasRole } = useAuth();
@@ -139,7 +139,7 @@ export default function ProfilePage() {
                   <Calendar className="h-4 w-4" />
                   Member Since
                 </label>
-                <p className="text-base">{format(new Date(user.created_at), "MMMM d, yyyy")}</p>
+                <p className="text-base">{formatDateDisplay(user.created_at, 'MMMM d, yyyy')}</p>
               </div>
             )}
           </CardContent>

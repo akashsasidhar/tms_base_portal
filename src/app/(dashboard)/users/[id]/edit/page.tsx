@@ -134,86 +134,6 @@ export default function EditUserPage({
     );
   }
 
-  // Get primary email contact (returns the contact object, not just the value)
-  // Returns the first primary email contact found
-  const getPrimaryEmailContact = (): UserContact | undefined => {
-    if (!user?.contacts || user.contacts.length === 0) return undefined;
-    // Look for primary email contact type
-    return user.contacts.find(
-      c => {
-        const type = c.contact_type?.toLowerCase();
-        return (type === 'primary email' || type === 'primary_email') && c.is_primary;
-      }
-    );
-  };
-
-  // Get ALL primary email contacts (to check for duplicates)
-  const getAllPrimaryEmailContacts = (): UserContact[] => {
-    if (!user?.contacts || user.contacts.length === 0) return [];
-    return user.contacts.filter(
-      c => {
-        const type = c.contact_type?.toLowerCase();
-        return (type === 'primary email' || type === 'primary_email') && c.is_primary;
-      }
-    );
-  };
-
-  // Get primary mobile contact (returns the contact object, not just the value)
-  // Returns the first primary mobile contact found
-  const getPrimaryMobileContact = (): UserContact | undefined => {
-    if (!user?.contacts || user.contacts.length === 0) return undefined;
-    // Look for primary mobile contact type
-    return user.contacts.find(
-      c => {
-        const type = c.contact_type?.toLowerCase();
-        return (type === 'primary mobile' || type === 'primary_mobile') && c.is_primary;
-      }
-    );
-  };
-
-  // Get ALL primary mobile contacts (to check for duplicates)
-  const getAllPrimaryMobileContacts = (): UserContact[] => {
-    if (!user?.contacts || user.contacts.length === 0) return [];
-    return user.contacts.filter(
-      c => {
-        const type = c.contact_type?.toLowerCase();
-        return (type === 'primary mobile' || type === 'primary_mobile') && c.is_primary;
-      }
-    );
-  };
-
-  // Get primary email value
-  const getPrimaryEmail = (): string => {
-    const emailContact = getPrimaryEmailContact();
-    return emailContact?.contact || '';
-  };
-
-  // Get primary mobile value
-  const getPrimaryMobile = (): string => {
-    const mobileContact = getPrimaryMobileContact();
-    return mobileContact?.contact || '';
-  };
-
-  // Get additional contacts (exclude primary email and primary mobile contacts - they're handled by primary fields)
-  const getAdditionalContacts = (): Array<{ id?: string; contact_type_id: string; contact: string }> => {
-    if (!user?.contacts || user.contacts.length === 0) return [];
-    
-    // Exclude primary email and primary mobile contacts - they're handled by primary email/mobile fields
-    return user.contacts
-      .filter(c => {
-        const type = c.contact_type?.toLowerCase();
-        // Exclude primary email and primary mobile contacts
-        return type !== 'primary email' && 
-               type !== 'primary_email' &&
-               type !== 'primary mobile' &&
-               type !== 'primary_mobile';
-      })
-      .map(c => ({
-        id: c.id,
-        contact_type_id: c.contact_type_id,
-        contact: c.contact,
-      }));
-  };
 
   const {
     register,
@@ -247,9 +167,9 @@ export default function EditUserPage({
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         is_active: user.is_active ?? true,
-        primary_email: getPrimaryEmail(),
-        primary_mobile: getPrimaryMobile(),
-        additional_contacts: getAdditionalContacts(),
+        primary_email: getPrimaryEmail(user.contacts),
+        primary_mobile: getPrimaryMobile(user.contacts),
+        additional_contacts: getAdditionalContacts(user.contacts),
       });
     }
   }, [user, contactTypes, reset]);
@@ -269,14 +189,10 @@ export default function EditUserPage({
       });
 
       // Find primary email and primary mobile contact type IDs
-      const primaryEmailType = contactTypes.find(t => 
-        t.contact_type.toLowerCase() === 'primary email' || 
-        t.contact_type.toLowerCase() === 'primary_email'
-      );
-      const primaryMobileType = contactTypes.find(t => 
-        t.contact_type.toLowerCase() === 'primary mobile' || 
-        t.contact_type.toLowerCase() === 'primary_mobile'
-      );
+      const primaryEmailType = findContactTypeByName(contactTypes, 'primary email') || 
+                                findContactTypeByName(contactTypes, 'primary_email');
+      const primaryMobileType = findContactTypeByName(contactTypes, 'primary mobile') || 
+                                 findContactTypeByName(contactTypes, 'primary_mobile');
       
       if (!primaryEmailType || !primaryMobileType) {
         toast.error('Primary email or primary mobile contact type not found. Please contact administrator.');
@@ -285,9 +201,9 @@ export default function EditUserPage({
 
       // Handle primary email - always update existing or create if doesn't exist
       // Remove any duplicate primary email contacts first
-      const currentEmail = getPrimaryEmail();
-      const primaryEmailContact = getPrimaryEmailContact();
-      const allPrimaryEmailContacts = getAllPrimaryEmailContacts();
+      const currentEmail = getPrimaryEmail(user.contacts);
+      const primaryEmailContact = getPrimaryEmailContact(user.contacts);
+      const allPrimaryEmailContacts = getAllPrimaryEmailContacts(user.contacts);
       
       // Remove duplicate primary email contacts (keep only the first one)
       if (allPrimaryEmailContacts.length > 1) {
@@ -324,9 +240,9 @@ export default function EditUserPage({
 
       // Handle primary mobile - always update existing or create if doesn't exist
       // Remove any duplicate primary mobile contacts first
-      const currentMobile = getPrimaryMobile();
-      const primaryMobileContact = getPrimaryMobileContact();
-      const allPrimaryMobileContacts = getAllPrimaryMobileContacts();
+      const currentMobile = getPrimaryMobile(user.contacts);
+      const primaryMobileContact = getPrimaryMobileContact(user.contacts);
+      const allPrimaryMobileContacts = getAllPrimaryMobileContacts(user.contacts);
       
       // Remove duplicate primary mobile contacts (keep only the first one)
       if (allPrimaryMobileContacts.length > 1) {
@@ -363,7 +279,7 @@ export default function EditUserPage({
 
       // Handle additional contacts
       // Filter out any primary email/mobile contacts that might have been added through additional contacts
-      const currentAdditional = getAdditionalContacts();
+      const currentAdditional = getAdditionalContacts(user.contacts);
       const newAdditional = (data.additional_contacts || []).filter(
         c => {
           if (!c.contact_type_id || !c.contact || c.contact.trim() === '') {
@@ -598,15 +514,7 @@ export default function EditUserPage({
                           </SelectTrigger>
                           <SelectContent>
                             {contactTypes &&
-                              contactTypes
-                                .filter(type => {
-                                  // Exclude primary email and primary mobile from additional contacts dropdown
-                                  const typeName = type.contact_type.toLowerCase();
-                                  return typeName !== 'primary email' && 
-                                         typeName !== 'primary_email' &&
-                                         typeName !== 'primary mobile' &&
-                                         typeName !== 'primary_mobile';
-                                })
+                              filterNonPrimaryContactTypes(contactTypes)
                                 .map(type => (
                                   <SelectItem key={type.id} value={type.id}>
                                     {type.contact_type}

@@ -123,39 +123,9 @@ export default function UsersPage() {
               </TableHeader>
               <TableBody>
                 {data.data.map((user) => {
-                  // Get primary email contact
-                  // Priority: 1) Contact type is "primary email", 2) Contact type is "email" AND is_primary is true
-                  const primaryEmail = user.contacts.find(
-                    (c) => {
-                      const type = c.contact_type?.toLowerCase();
-                      // Check if it's a primary email type
-                      if (type === 'primary email' || type === 'primary_email') {
-                        return true;
-                      }
-                      // Check if it's a regular email that's marked as primary
-                      if (type === 'email' && c.is_primary) {
-                        return true;
-                      }
-                      return false;
-                    }
-                  );
-
-                  // Get primary mobile contact
-                  // Priority: 1) Contact type is "primary mobile", 2) Contact type is "mobile" AND is_primary is true
-                  const primaryMobile = user.contacts.find(
-                    (c) => {
-                      const type = c.contact_type?.toLowerCase();
-                      // Check if it's a primary mobile type
-                      if (type === 'primary mobile' || type === 'primary_mobile') {
-                        return true;
-                      }
-                      // Check if it's a regular mobile that's marked as primary
-                      if ((type === 'mobile' || type === 'phone') && c.is_primary) {
-                        return true;
-                      }
-                      return false;
-                    }
-                  );
+                  // Get primary email and mobile using utility functions
+                  const primaryEmailValue = getPrimaryEmail(user.contacts);
+                  const primaryMobileValue = getPrimaryMobile(user.contacts);
 
                   return (
                     <TableRow key={user.id}>

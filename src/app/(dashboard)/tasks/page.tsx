@@ -24,20 +24,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDeleteTask } from '@/hooks/useTasks';
-import { format } from 'date-fns';
-
-const priorityColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
-  LOW: 'secondary',
-  MEDIUM: 'default',
-  HIGH: 'destructive',
-};
-
-const statusColors: Record<string, 'default' | 'secondary' | 'outline'> = {
-  TODO: 'outline',
-  IN_PROGRESS: 'default',
-  REVIEW: 'secondary',
-  DONE: 'default',
-};
+import { formatDateDisplay, getPriorityVariant, getStatusVariant, formatTaskStatus } from '@/utils/task.util';
+import { getAssigneeNames } from '@/utils/user.util';
 
 export default function TasksPage() {
   const [search, setSearch] = useState('');
@@ -199,20 +187,20 @@ export default function TasksPage() {
                         <Badge variant="outline">{task.task_type}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={priorityColors[task.priority] || 'default'}>
+                        <Badge variant={getPriorityVariant(task.priority)}>
                           {task.priority}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={statusColors[task.status] || 'default'}>
-                          {task.status.replace('_', ' ')}
+                        <Badge variant={getStatusVariant(task.status)}>
+                          {formatTaskStatus(task.status)}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {task.due_date ? format(new Date(task.due_date), 'MMM dd, yyyy') : '-'}
+                        {formatDateDisplay(task.due_date)}
                       </TableCell>
                       <TableCell className="max-w-xs truncate">
-                        {assigneeNames || 'Unassigned'}
+                        {assigneeNames}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

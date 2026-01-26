@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { validateDateRange } from '@/utils/date.util';
+import { filterUsersByRole, getUserDisplayName } from '@/utils/user.util';
 import { useRouter } from 'next/navigation';
 import { useCreateProject } from '@/hooks/useProjects';
 import { useUsersList } from '@/hooks/useUsers';
@@ -43,7 +45,7 @@ const createProjectSchema = z.object({
   (data) => {
     // If both dates are provided, end_date should be after start_date
     if (data.start_date && data.end_date) {
-      return new Date(data.end_date) >= new Date(data.start_date);
+      return validateDateRange(data.start_date, data.end_date);
     }
     return true;
   },

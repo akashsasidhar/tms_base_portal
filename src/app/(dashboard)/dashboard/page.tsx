@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
-  const { user, hasRole } = useAuth();
+  const { user, hasAdminRole } = useAuth();
   const { statistics, isLoading } = useDashboard();
 
   const displayName = user?.first_name && user?.last_name
@@ -24,7 +24,7 @@ export default function DashboardPage() {
     : user?.username || 'User';
 
   // Check if user is admin/PM
-  const isAdmin = hasRole('Admin') || hasRole('Super Admin') || hasRole('Project Manager');
+  const isAdmin = hasAdminRole();
 
   return (
     <div className="space-y-6">

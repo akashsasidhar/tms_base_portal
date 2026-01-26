@@ -214,14 +214,10 @@ export default function NewUserPage() {
     const { confirm_password, role_id, password, primary_email, primary_mobile, additional_contacts, ...createData } = data;
     
     // Find primary email and primary mobile contact type IDs
-    const primaryEmailType = contactTypes.find(t => 
-      t.contact_type.toLowerCase() === 'primary email' || 
-      t.contact_type.toLowerCase() === 'primary_email'
-    );
-    const primaryMobileType = contactTypes.find(t => 
-      t.contact_type.toLowerCase() === 'primary mobile' || 
-      t.contact_type.toLowerCase() === 'primary_mobile'
-    );
+    const primaryEmailType = findContactTypeByName(contactTypes, 'primary email') || 
+                              findContactTypeByName(contactTypes, 'primary_email');
+    const primaryMobileType = findContactTypeByName(contactTypes, 'primary mobile') || 
+                               findContactTypeByName(contactTypes, 'primary_mobile');
     
     if (!primaryEmailType || !primaryMobileType) {
       toast.error("Primary email or primary mobile contact type not found. Please contact administrator.");
@@ -239,11 +235,8 @@ export default function NewUserPage() {
         // Exclude primary email and primary mobile from additional contacts
         const contactType = contactTypes.find(t => t.id === contact.contact_type_id);
         if (contactType) {
-          const typeName = contactType.contact_type.toLowerCase();
-          return typeName !== 'primary email' && 
-                 typeName !== 'primary_email' &&
-                 typeName !== 'primary mobile' &&
-                 typeName !== 'primary_mobile';
+          const filteredTypes = filterNonPrimaryContactTypes([contactType]);
+          return filteredTypes.length > 0;
         }
         return true;
       }
@@ -408,14 +401,7 @@ export default function NewUserPage() {
                           <SelectContent>
                             {contactTypes &&
                               contactTypes
-                                .filter(type => {
-                                  // Exclude primary email and primary mobile from additional contacts dropdown
-                                  const typeName = type.contact_type.toLowerCase();
-                                  return typeName !== 'primary email' && 
-                                         typeName !== 'primary_email' &&
-                                         typeName !== 'primary mobile' &&
-                                         typeName !== 'primary_mobile';
-                                })
+                                .filter(type => filterNonPrimaryContactTypes([type]).length > 0)
                                 .map(type => (
                                   <SelectItem key={type.id} value={type.id}>
                                     {type.contact_type}
