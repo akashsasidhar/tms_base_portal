@@ -15,7 +15,7 @@ import Link from 'next/link';
 
 // Validation schema
 const loginSchema = z.object({
-  contact: z.string().min(1, 'Contact is required'),
+  contact: z.string().email('Please enter a valid email address').min(1, 'Primary email is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -71,16 +71,16 @@ export default function LoginForm() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="contact">Primary Email or Primary Mobile</Label>
+            <Label htmlFor="contact">Primary Email</Label>
             <Input
               id="contact"
-              type="text"
-              placeholder="your.primary@email.com or +1234567890"
+              type="email"
+              placeholder="your.primary@email.com"
               {...register('contact')}
               disabled={isSubmitting || isLoading}
             />
             <p className="text-xs text-muted-foreground">
-              Use your primary email or primary mobile number to login
+              Use your primary email address to login
             </p>
             {errors.contact && (
               <p className="text-sm text-destructive">{errors.contact.message}</p>
