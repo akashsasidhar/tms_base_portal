@@ -19,6 +19,16 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { toast } from 'sonner';
 import type { ContactType } from '@/types/contact.types';
 import type { UserContact } from '@/types/user.types';
+import {
+  getPrimaryEmail,
+  getPrimaryMobile,
+  getPrimaryEmailContact,
+  getPrimaryMobileContact,
+  getAllPrimaryEmailContacts,
+  getAllPrimaryMobileContacts,
+  getAdditionalContacts,
+  findContactTypeByName,
+} from '@/utils/contact.util';
 
 // UUID validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

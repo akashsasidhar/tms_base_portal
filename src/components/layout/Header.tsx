@@ -19,7 +19,7 @@ const routeTitles: Record<string, string> = {
   '/users': 'Users',
   '/roles': 'Roles',
   '/contact-types': 'Contact Types',
-  '/permissions': 'Permissions',
+  // '/permissions': 'Permissions',
 };
 
 // Helper function to get title from pathname

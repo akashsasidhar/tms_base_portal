@@ -8,19 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   Mail,
-  Phone,
   Shield,
-  Calendar,
   User as UserIcon,
-  CheckCircle2,
-  XCircle,
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import ContactBadge from "@/components/common/ContactBadge";
 import RoleBadge from "@/components/common/RoleBadge";
-import { formatDateDisplay } from '@/utils/date.util';
 
 export default function ProfilePage() {
   const { user, isLoading, hasRole } = useAuth();
@@ -133,15 +128,6 @@ export default function ProfilePage() {
                 </Badge>
               </div>
             </div> */}
-            {user.created_at && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Member Since
-                </label>
-                <p className="text-base">{formatDateDisplay(user.created_at, 'MMMM d, yyyy')}</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -189,27 +175,6 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Permissions - Only visible to Super Admin */}
-        {isSuperAdmin && permissions && permissions.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Permissions
-              </CardTitle>
-              <CardDescription>Your system permissions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {permissions.map((permission: string, index: number) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {permission}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

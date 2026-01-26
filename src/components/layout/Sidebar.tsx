@@ -71,7 +71,7 @@ const navItems: NavItem[] = [
   { href: '/users', label: 'Users', icon: Users, permission: 'users:read' },
   { href: '/roles', label: 'Roles', icon: Shield, permission: 'roles:read' },
   { href: '/contact-types', label: 'Contact Types', icon: Mail, permission: 'contact-types:read' },
-  { href: '/permissions', label: 'Permissions', icon: Key, permission: 'permissions:read' },
+  // { href: '/permissions', label: 'Permissions', icon: Key, permission: 'permissions:read' },
 ];
 
 interface SidebarProps {

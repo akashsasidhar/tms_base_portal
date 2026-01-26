@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { getPrimaryEmail, getPrimaryMobile } from '@/utils/contact.util';
 
 export default function UsersPage() {
   const [search, setSearch] = useState('');
@@ -136,15 +137,15 @@ export default function UsersPage() {
                           : '-'}
                       </TableCell>
                       <TableCell>
-                        {primaryEmail ? (
-                          <span className="text-sm">{primaryEmail.contact}</span>
+                        {primaryEmailValue ? (
+                          <span className="text-sm">{primaryEmailValue}</span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {primaryMobile ? (
-                          <span className="text-sm">{primaryMobile.contact}</span>
+                        {primaryMobileValue ? (
+                          <span className="text-sm">{primaryMobileValue}</span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}

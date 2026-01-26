@@ -6,12 +6,11 @@ import { useUser } from '@/hooks/useUsers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Mail, Phone, Shield, Calendar, User as UserIcon, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Mail, Shield, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import ContactBadge from '@/components/common/ContactBadge';
 import RoleBadge from '@/components/common/RoleBadge';
-import { formatDateDetailed } from '@/utils/date.util';
 import type { UserContact } from '@/types/auth.types';
 
 // UUID validation regex
@@ -116,28 +115,6 @@ export default function UserDetailPage({
                 <p className="text-base">{user.last_name}</p>
               </div>
             )}
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Status</label>
-              <div className="mt-1">
-                <Badge variant={user.is_active ? 'default' : 'secondary'} className="flex items-center gap-1 w-fit">
-                  {user.is_active ? (
-                    <>
-                      <CheckCircle2 className="h-3 w-3" />
-                      Active
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-3 w-3" />
-                      Inactive
-                    </>
-                  )}
-                </Badge>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">User ID</label>
-              <p className="text-base font-mono text-sm">{user.id}</p>
-            </div>
           </CardContent>
         </Card>
 
@@ -186,30 +163,6 @@ export default function UserDetailPage({
           </CardContent>
         </Card>
 
-        {/* Timestamps */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Timestamps
-            </CardTitle>
-            <CardDescription>Account activity information</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Created At</label>
-              <p className="text-base">
-                {formatDateDetailed(user.created_at)}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-              <p className="text-base">
-                {formatDateDetailed(user.updated_at)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

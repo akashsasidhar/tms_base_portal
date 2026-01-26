@@ -113,28 +113,7 @@ export default function RoleDetailPage({
               <label className="text-sm font-medium text-muted-foreground">Description</label>
               <p className="text-base">{role.description || <span className="text-muted-foreground">No description</span>}</p>
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Status</label>
-              <div className="mt-1">
-                <Badge variant={role.is_active ? 'default' : 'secondary'} className="flex items-center gap-1 w-fit">
-                  {role.is_active ? (
-                    <>
-                      <CheckCircle2 className="h-3 w-3" />
-                      Active
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-3 w-3" />
-                      Inactive
-                    </>
-                  )}
-                </Badge>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Role ID</label>
-              <p className="text-base font-mono text-sm">{role.id}</p>
-            </div>
+            
           </CardContent>
         </Card>
 
@@ -154,12 +133,7 @@ export default function RoleDetailPage({
                 {role.users_count !== undefined ? role.users_count : '-'}
               </p>
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Permissions</label>
-              <p className="text-base font-medium">
-                {role.permissions_count !== undefined ? role.permissions_count : '-'}
-              </p>
-            </div>
+           
           </CardContent>
         </Card>
 

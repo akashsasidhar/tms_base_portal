@@ -211,19 +211,7 @@ export default function EditRolePage({
               </p>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is_active"
-                checked={watch('is_active') ?? role.is_active}
-                onCheckedChange={(checked) => {
-                  setValue('is_active', checked as boolean);
-                }}
-                disabled={updateRoleMutation.isPending}
-              />
-              <Label htmlFor="is_active" className="font-normal cursor-pointer">
-                Active
-              </Label>
-            </div>
+           
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row justify-end gap-2">
             <Button 
